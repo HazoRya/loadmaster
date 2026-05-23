@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadMaster — Optimiseur de chargement</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+  :root {
+    --bg: #f0f2f5;
+    --bg2: #ffffff;
+    --bg3: #f5f6f8;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent2: #059669;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* TOPBAR */
+  .topbar { display:flex; align-items:center; gap:12px; padding:0 16px; height:50px; background:var(--bg2); border-bottom:1px solid var(--border); flex-shrink:0; box-shadow:var(--shadow); }
+  .logo { font-size:15px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:8px; }
+  .logo-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); }
+  .topbar-center { flex:1; display:flex; align-items:center; justify-content:center; gap:4px; }
+  .tool-btn { padding:5px 11px; font-size:12px; font-family:'DM Sans',sans-serif; border:1px solid var(--border2); border-radius:var(--radius-sm); background:transparent; color:var(--muted); cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px; }
+  .tool-btn:hover { background:var(--bg3); color:var(--text); }
+  .tool-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tool-sep { width:1px; height:18px; background:var(--border); margin:0 2px; }
+  .topbar-right { display:flex; align-items:center; gap:8px; }
+  .badge { padding:3px 10px; border-radius:20px; font-size:11px; font-weight:500; }
+  .badge-ok { background:rgba(5,150,105,.1); color:var(--accent2); border:1px solid rgba(5,150,105,.25); }
+  .badge-warn { background:rgba(217,119,6,.1); color:var(--warn); border:1px solid rgba(217,119,6,.25); }
+  .badge-err { background:rgba(220,38,38,.1); color:var(--danger); border:1px solid rgba(220,38,38,.25); }
+
+  /* LAYOUT */
+  .layout { flex:1; display:grid; grid-template-columns:270px 1fr 250px; overflow:hidden; }
+
+  /* PANELS */
+  .panel { background:var(--bg2); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+  .panel-right { border-right:none; border-left:1px solid var(--border); }
+  .panel-header { padding:12px 14px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .panel-title { font-size:11px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .panel-body { flex:1; overflow-y:auto; padding:12px; }
+  .panel-body::-webkit-scrollbar { width:4px; }
+  .panel-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+  /* TABS */
+  .tabs { display:flex; gap:3px; padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .tab { flex:1; padding:6px 4px; font-size:12px; font-family:'DM Sans',sans-serif; border:1px solid transparent; border-radius:var(--radius-sm); background:transparent; color:var(--muted); cursor:pointer; text-align:center; transition:all .15s; }
+  .tab.on { background:var(--bg3); color:var(--text); border-color:var(--border2); }
+  .tab-content { display:none; flex:1; overflow-y:auto; padding:12px; }
+  .tab-content::-webkit-scrollbar { width:4px; }
+  .tab-content::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+  .tab-content.on { display:block; }
+
+  /* FORM */
+  .field { margin-bottom:9px; }
+  .field label { font-size:11px; color:var(--muted); display:block; margin-bottom:3px; }
+  .field input, .field select, input.f, select.f { width:100%; padding:6px 9px; font-size:12px; font-family:'DM Sans',sans-serif; background:var(--bg3); border:1px solid var(--border2); border-radius:var(--radius-sm); color:var(--text); outline:none; transition:border-color .15s; }
+  .field input:focus, input.f:focus, select.f:focus { border-color:var(--accent); }
+  .field-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  .btn { width:100%; padding:7px 12px; font-size:12px; font-family:'DM Sans',sans-serif; border:1px solid var(--border2); border-radius:var(--radius-sm); background:transparent; color:var(--text); cursor:pointer; transition:all .15s; margin-top:5px; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .btn:hover { background:var(--bg3); }
+  .btn.pri { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn.pri:hover { opacity:.88; }
+  .btn.danger { color:var(--danger); border-color:rgba(220,38,38,.3); }
+  .btn.danger:hover { background:rgba(220,38,38,.07); }
+  .divider { height:1px; background:var(--border); margin:10px 0; }
+  .sec { font-size:10px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:7px; margin-top:4px; }
+
+  /* DB LIST */
+  .db-list { display:flex; flex-direction:column; gap:3px; }
+  .db-item { display:flex; align-items:center; gap:7px; padding:6px 8px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:12px; }
+  .db-item .dn { flex:1; font-weight:500; color:var(--text); }
+  .db-item .dd { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+  .db-item .dx { color:var(--muted); cursor:pointer; font-size:15px; padding:0 2px; line-height:1; }
+  .db-item .dx:hover { color:var(--danger); }
+  .colordot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+
+  /* SCENE LIST */
+  .scene-list { display:flex; flex-direction:column; gap:3px; }
+  .scene-item { display:flex; align-items:center; gap:7px; padding:6px 8px; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:12px; cursor:pointer; transition:all .15s; }
+  .scene-item:hover { border-color:var(--border2); }
+  .scene-item.selected { border-color:var(--accent); background:rgba(37,99,235,.05); }
+  .scene-item .sn { flex:1; font-weight:500; }
+  .scene-item .sp { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+  .scene-item .dx { color:var(--muted); cursor:pointer; font-size:15px; }
+  .scene-item .dx:hover { color:var(--danger); }
+
+  /* STATS */
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:10px; }
+  .stat { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px; text-align:center; }
+  .stat-v { font-size:16px; font-weight:600; color:var(--text); font-family:'DM Mono',monospace; }
+  .stat-l { font-size:10px; color:var(--muted); margin-top:1px; }
+  .prog-bar { height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; margin:5px 0 3px; }
+  .prog-fill { height:100%; border-radius:3px; transition:width .4s, background .4s; }
+  .prog-lbl { font-size:10px; color:var(--muted); display:flex; justify-content:space-between; }
+
+  /* COLOR PICKER */
+  .color-pick { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+  .color-swatch { width:20px; height:20px; border-radius:4px; cursor:pointer; border:2px solid transparent; transition:transform .1s; }
+  .color-swatch:hover { transform:scale(1.1); }
+  .color-swatch.on { border-color:#333; }
+
+  /* MOVE CONTROLS */
+  .move-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; margin:7px 0; }
+  .mv-btn { padding:5px 4px; font-size:11px; font-family:'DM Sans',sans-serif; border:1px solid var(--border2); border-radius:var(--radius-sm); background:transparent; color:var(--text); cursor:pointer; text-align:center; transition:all .1s; }
+  .mv-btn:hover { background:var(--bg3); border-color:var(--accent); color:var(--accent); }
+  .pos-inputs { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; }
+  .pos-inputs label { font-size:10px; color:var(--muted); display:block; margin-bottom:2px; }
+
+  /* CANVAS */
+  #canvas-wrap { background:#e8edf5; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+  #c { display:block; cursor:grab; }
+  #c.drag { cursor:grabbing; }
+  #c.mv-cursor { cursor:move; }
+
+  /* HUD */
+  .hud { position:absolute; top:10px; left:10px; background:rgba(255,255,255,0.9); border:1px solid var(--border2); border-radius:var(--radius-sm); padding:6px 10px; font-size:11px; color:var(--muted); pointer-events:none; backdrop-filter:blur(4px); font-family:'DM Mono',monospace; }
+  .hud b { color:var(--text); font-weight:500; }
+  .hint-bar { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:rgba(255,255,255,0.88); border:1px solid var(--border); border-radius:20px; padding:4px 14px; font-size:10px; color:var(--muted); pointer-events:none; white-space:nowrap; }
+
+  .axis-info { position:absolute; bottom:10px; right:10px; background:rgba(255,255,255,.88); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; font-size:10px; color:var(--muted); pointer-events:none; font-family:'DM Mono',monospace; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><div class="logo-dot"></div>LoadMaster</div>
+  <div class="topbar-center">
+    <button class="tool-btn active" id="btn-orbit" onclick="setMode('orbit')">↻ Orbite</button>
+    <button class="tool-btn" id="btn-mv-xz" onclick="setMode('move-xz')">⬌ Déplacer (sol)</button>
+    <button class="tool-btn" id="btn-mv-y" onclick="setMode('move-y')">⬍ Déplacer (hauteur)</button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" onclick="resetCam()">⟳ Caméra</button>
+    <button class="tool-btn" onclick="snapGround()">⬇ Sol</button>
+    <button class="tool-btn" onclick="autoStack()">⧉ Auto</button>
+  </div>
+  <div class="topbar-right">
+    <div id="top-badge" class="badge badge-ok">✓ Valide</div>
+    <div id="top-pct" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">0%</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- GAUCHE -->
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">Configuration</div></div>
+    <div class="tabs">
+      <button class="tab on" onclick="sw('sc')">Scène</button>
+      <button class="tab" onclick="sw('pk')">Colis</button>
+      <button class="tab" onclick="sw('tr')">Véhicule</button>
+    </div>
+
+    <div id="tp-sc" class="tab-content on">
+      <div class="sec">Véhicule actif</div>
+      <select class="f" id="sel-truck" onchange="selTruck()" style="margin-bottom:10px"></select>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-v" id="sv">—</div><div class="stat-l">m³ total</div></div>
+        <div class="stat"><div class="stat-v" id="su">0</div><div class="stat-l">m³ chargé</div></div>
+        <div class="stat"><div class="stat-v" id="sw-kg">0</div><div class="stat-l">kg</div></div>
+      </div>
+      <div class="prog-lbl"><span>Remplissage</span><span id="prog-pct">0%</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%;background:var(--accent2)"></div></div>
+      <div id="sbadge" style="margin-top:5px"></div>
+      <div class="divider"></div>
+      <div class="sec">Ajouter un colis</div>
+      <select class="f" id="sel-pkg" style="margin-bottom:6px"></select>
+      <button class="btn pri" onclick="addToScene()">+ Placer dans le camion</button>
+      <div class="divider"></div>
+      <div class="sec">Dans le camion (<span id="scene-count">0</span>)</div>
+      <div class="scene-list" id="scene-list"></div>
+    </div>
+
+    <div id="tp-pk" class="tab-content">
+      <div class="sec">Nouveau colis</div>
+      <div class="field"><label>Nom</label><input type="text" id="pk-n" placeholder="Ex: Palette europe"></div>
+      <div class="field">
+        <label>Dimensions (cm) — Longueur · Largeur · Hauteur</label>
+        <div class="field-row">
+          <input type="number" id="pk-l" value="80" placeholder="L">
+          <input type="number" id="pk-w" value="60" placeholder="l">
+          <input type="number" id="pk-h" value="60" placeholder="H">
+        </div>
+      </div>
+      <div class="field"><label>Poids (kg)</label><input type="number" id="pk-kg" value="30"></div>
+      <div class="field"><label>Couleur</label><div class="color-pick" id="cpick"></div></div>
+      <button class="btn pri" onclick="savePkg()">Enregistrer</button>
+      <div class="divider"></div>
+      <div class="sec">Base de colis (<span id="pkg-count">0</span>)</div>
+      <div class="db-list" id="pkg-db-list"></div>
+    </div>
+
+    <div id="tp-tr" class="tab-content">
+      <div class="sec">Nouveau véhicule</div>
+      <div class="field"><label>Nom / modèle</label><input type="text" id="tr-n" placeholder="Ex: Iveco Daily"></div>
+      <div class="field">
+        <label>Dimensions soute (cm) — Longueur · Largeur · Hauteur</label>
+        <div class="field-row">
+          <input type="number" id="tr-l" value="300" placeholder="L">
+          <input type="number" id="tr-w" value="170" placeholder="l">
+          <input type="number" id="tr-h" value="190" placeholder="H">
+        </div>
+      </div>
+      <div class="field"><label>Charge utile max (kg)</label><input type="number" id="tr-kg" value="1500"></div>
+      <button class="btn pri" onclick="saveTruck()">Enregistrer</button>
+      <div class="divider"></div>
+      <div class="sec">Base véhicules (<span id="truck-count">0</span>)</div>
+      <div class="db-list" id="truck-db-list"></div>
+    </div>
+  </div>
+
+  <!-- 3D -->
+  <div id="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="hud" id="hud"><b>Vue libre</b></div>
+    <div class="hint-bar" id="hint-bar">Glisser: orbite &nbsp;·&nbsp; Molette: zoom &nbsp;·&nbsp; Clic: sélectionner</div>
+    <div class="axis-info" id="axis-info" style="display:none"></div>
+  </div>
+
+  <!-- DROITE -->
+  <div class="panel panel-right">
+    <div class="panel-header"><div class="panel-title">Colis sélectionné</div></div>
+    <div class="panel-body" id="right-panel">
+      <div style="color:var(--muted);font-size:12px;text-align:center;margin-top:50px;line-height:1.7">
+        Sélectionnez un colis<br>en cliquant dessus<br>dans la vue 3D
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLS = ['#2563eb','#059669','#ea580c','#db2777','#7c3aed','#d97706','#dc2626','#0891b2','#65a30d','#c026d3'];
+let selCol = COLS[0];
+
+const cpEl = document.getElementById('cpick');
+COLS.forEach((c,i) => {
+  const s = document.createElement('div');
+  s.className = 'color-swatch'+(i===0?' on':'');
+  s.style.background = c;
+  s.onclick = () => { selCol=c; document.querySelectorAll('.color-swatch').forEach(x=>x.classList.remove('on')); s.classList.add('on'); };
+  cpEl.appendChild(s);
+});
+
+let pkgDB = [
+  {id:1,name:'Palette europe',l:120,w:80,h:100,kg:800,color:'#2563eb'},
+  {id:2,name:'Carton fragile',l:60,w:40,h:50,kg:20,color:'#059669'},
+  {id:3,name:'Colis standard',l:40,w:30,h:30,kg:15,color:'#ea580c'},
+  {id:4,name:'Gros électro',l:80,w:60,h:90,kg:60,color:'#db2777'},
+  {id:5,name:'Petit carton',l:35,w:25,h:25,kg:8,color:'#7c3aed'},
+];
+let truckDB = [
+  {id:1,name:'Fourgonnette L1H1',l:220,w:145,h:155,kg:800},
+  {id:2,name:'Iveco Daily L3H2',l:410,w:205,h:215,kg:1500},
+  {id:3,name:'Mercedes Sprinter',l:360,w:175,h:195,kg:1200},
+  {id:4,name:'Grand routier 20t',l:1360,w:240,h:270,kg:20000},
+];
+let pkgId=6, truckId=5;
+let truck = truckDB[1];
+let scene = [];
+let nextSid = 1;
+let selSid = -1;
+let imode = 'orbit';
+
+// Camera
+let aY = -0.42, aX = 0.32, zoom = 1;
+let drag = false, ds = {x:0,y:0};
+
+// Pkg drag state
+let pkgDrag = false;
+let pkgDragStart = {mx:0,my:0};
+let pkgDragOrigin = {x:0,y:0,z:0};
+
+function clampPkg(s) {
+  if (!truck) return;
+  // clamp so box stays fully inside truck
+  s.x = Math.max(0, Math.min(truck.l - s.l, s.x));
+  s.y = Math.max(0, Math.min(truck.h - s.h, s.y));
+  s.z = Math.max(0, Math.min(truck.w - s.w, s.z));
+}
+
+function sw(t) {
+  ['sc','pk','tr'].forEach((n,i) => {
+    document.getElementById('tp-'+n).classList.toggle('on', n===t);
+    document.querySelectorAll('.tab')[i].classList.toggle('on', n===t);
+  });
+}
+
+function savePkg() {
+  const n = document.getElementById('pk-n').value.trim(); if(!n) return;
+  pkgDB.push({id:pkgId++, name:n,
+    l:+document.getElementById('pk-l').value||60,
+    w:+document.getElementById('pk-w').value||40,
+    h:+document.getElementById('pk-h').value||40,
+    kg:+document.getElementById('pk-kg').value||10,
+    color:selCol});
+  document.getElementById('pk-n').value='';
+  renderAll();
+}
+function delPkg(id) { pkgDB=pkgDB.filter(p=>p.id!==id); renderAll(); }
+
+function saveTruck() {
+  const n = document.getElementById('tr-n').value.trim(); if(!n) return;
+  truckDB.push({id:truckId++, name:n,
+    l:+document.getElementById('tr-l').value||300,
+    w:+document.getElementById('tr-w').value||170,
+    h:+document.getElementById('tr-h').value||190,
+    kg:+document.getElementById('tr-kg').value||1500});
+  document.getElementById('tr-n').value='';
+  renderAll();
+}
+function delTruck(id) {
+  truckDB=truckDB.filter(t=>t.id!==id);
+  if(truck&&truck.id===id) truck=truckDB[0]||null;
+  renderAll();
+}
+
+function selTruck() {
+  const id=+document.getElementById('sel-truck').value;
+  truck=truckDB.find(t=>t.id===id)||truckDB[0];
+  scene=[]; selSid=-1;
+  updateRightPanel(); renderAll(); draw();
+}
+
+function addToScene() {
+  const id=+document.getElementById('sel-pkg').value;
+  const tpl=pkgDB.find(p=>p.id===id);
+  if(!tpl||!truck) return;
+  // Check it fits
+  if(tpl.l>truck.l||tpl.w>truck.w||tpl.h>truck.h) {
+    alert(`Ce colis (${tpl.l}×${tpl.w}×${tpl.h} cm) est plus grand que la soute du camion !`);
+    return;
+  }
+  scene.push({sid:nextSid++, name:tpl.name, l:tpl.l, w:tpl.w, h:tpl.h, kg:tpl.kg||0, color:tpl.color, x:0, y:0, z:0});
+  renderSceneList(); updateStats(); draw();
+}
+
+function rmSel() {
+  scene=scene.filter(s=>s.sid!==selSid);
+  selSid=-1; updateRightPanel(); renderSceneList(); updateStats(); draw();
+}
+
+function mv(dx,dy,dz) {
+  const s=scene.find(x=>x.sid===selSid); if(!s) return;
+  s.x=s.x+dx; s.y=s.y+dy; s.z=s.z+dz;
+  clampPkg(s);
+  s.x=Math.round(s.x); s.y=Math.round(s.y); s.z=Math.round(s.z);
+  updateRightPanel(); renderSceneList(); updateStats(); draw();
+}
+
+function setpos() {
+  const s=scene.find(x=>x.sid===selSid); if(!s) return;
+  s.x=+document.getElementById('rp-x').value||0;
+  s.y=+document.getElementById('rp-y').value||0;
+  s.z=+document.getElementById('rp-z').value||0;
+  clampPkg(s);
+  document.getElementById('rp-x').value=Math.round(s.x);
+  document.getElementById('rp-y').value=Math.round(s.y);
+  document.getElementById('rp-z').value=Math.round(s.z);
+  renderSceneList(); updateStats(); draw();
+}
+
+function snapGround() {
+  scene.forEach(s=>{s.y=0;});
+  renderSceneList(); updateStats(); draw();
+}
+
+function autoStack() {
+  if(!truck) return;
+  let cx=0,cz=0,rowH=0,maxLayerH=0;
+  scene.forEach(s => {
+    if(cx+s.l>truck.l){cx=0;cz+=rowH;rowH=0;}
+    if(cz+s.w>truck.w){cx=0;cz=0;rowH=0;}
+    s.x=cx; s.y=0; s.z=cz;
+    clampPkg(s);
+    cx+=s.l; rowH=Math.max(rowH,s.w);
+  });
+  renderSceneList(); updateStats(); draw();
+}
+
+function setMode(m) {
+  imode=m;
+  document.getElementById('btn-orbit').classList.toggle('active',m==='orbit');
+  document.getElementById('btn-mv-xz').classList.toggle('active',m==='move-xz');
+  document.getElementById('btn-mv-y').classList.toggle('active',m==='move-y');
+  const hints = {
+    'orbit':'Glisser: orbite · Molette: zoom · Clic: sélectionner',
+    'move-xz':'Glisser un colis: déplacer sur le sol (X/Z) · Orbite sur vide',
+    'move-y':'Glisser un colis: monter/descendre (Y) · Orbite sur vide'
+  };
+  document.getElementById('hint-bar').textContent=hints[m];
+  c.className = m==='orbit' ? '' : 'mv-cursor';
+}
+function resetCam() { aY=-0.42; aX=0.32; zoom=1; draw(); }
+
+function selItem(sid) {
+  selSid=sid===selSid?-1:sid;
+  updateRightPanel(); renderSceneList(); draw();
+}
+
+function updateRightPanel() {
+  const s=scene.find(x=>x.sid===selSid);
+  document.getElementById('hud').innerHTML=s
+    ?`<b>${s.name}</b> — X:${Math.round(s.x)} Y:${Math.round(s.y)} Z:${Math.round(s.z)}`
+    :'<b>Vue libre</b>';
+  const rp=document.getElementById('right-panel');
+  if(!s){rp.innerHTML='<div style="color:var(--muted);font-size:12px;text-align:center;margin-top:50px;line-height:1.7">Sélectionnez un colis<br>en cliquant dessus<br>dans la vue 3D</div>';return;}
+  rp.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="width:14px;height:14px;border-radius:4px;background:${s.color}"></div>
+      <div style="font-weight:600;font-size:14px">${s.name}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+      <div class="stat"><div class="stat-v">${s.l}</div><div class="stat-l">Long. cm</div></div>
+      <div class="stat"><div class="stat-v">${s.w}</div><div class="stat-l">Larg. cm</div></div>
+      <div class="stat"><div class="stat-v">${s.h}</div><div class="stat-l">Haut. cm</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${(s.l*s.w*s.h/1e6).toFixed(3)} m³ &nbsp;·&nbsp; ${s.kg||0} kg</div>
+    <div class="divider"></div>
+    <div class="sec">Déplacer (pas 5 cm)</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:5px">Plan horizontal (X · Z)</div>
+    <div class="move-grid">
+      <div class="mv-btn" onclick="mv(-5,0,0)">← X</div>
+      <div class="mv-btn" style="background:transparent"></div>
+      <div class="mv-btn" onclick="mv(5,0,0)">X →</div>
+      <div class="mv-btn" onclick="mv(0,0,-5)">← Z</div>
+      <div class="mv-btn" style="background:transparent"></div>
+      <div class="mv-btn" onclick="mv(0,0,5)">Z →</div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin:5px 0">Hauteur (Y)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px">
+      <div class="mv-btn" onclick="mv(0,5,0)">Y ↑ +5cm</div>
+      <div class="mv-btn" onclick="mv(0,-5,0)">Y ↓ −5cm</div>
+    </div>
+    <div class="divider"></div>
+    <div class="sec">Position exacte (cm)</div>
+    <div class="pos-inputs">
+      <div><label>X</label><input type="number" id="rp-x" class="f" value="${Math.round(s.x)}" oninput="setpos()" style="font-size:12px"></div>
+      <div><label>Y</label><input type="number" id="rp-y" class="f" value="${Math.round(s.y)}" oninput="setpos()" style="font-size:12px"></div>
+      <div><label>Z</label><input type="number" id="rp-z" class="f" value="${Math.round(s.z)}" oninput="setpos()" style="font-size:12px"></div>
+    </div>
+    <div class="divider"></div>
+    <button class="btn danger" onclick="rmSel()">Retirer du camion</button>
+  `;
+}
+
+function updateStats() {
+  if(!truck) return;
+  const vT=Math.round(truck.l*truck.w*truck.h/1e6*10)/10;
+  const vU=scene.reduce((a,s)=>a+s.l*s.w*s.h,0)/1e6;
+  const kgU=scene.reduce((a,s)=>a+(s.kg||0),0);
+  const pct=Math.min(100,Math.round(vU/vT*1000)/10);
+  document.getElementById('sv').textContent=vT;
+  document.getElementById('su').textContent=Math.round(vU*10)/10;
+  document.getElementById('sw-kg').textContent=kgU;
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('top-pct').textContent=pct+'%';
+  const pf=document.getElementById('prog-fill');
+  pf.style.width=pct+'%';
+  pf.style.background=pct>90?'var(--danger)':pct>70?'var(--warn)':'var(--accent2)';
+  const badge=document.getElementById('top-badge');
+  const sbadge=document.getElementById('sbadge');
+  if(pct>=100){
+    badge.className='badge badge-warn'; badge.textContent='Surcharge volumique';
+    sbadge.innerHTML='<span class="badge badge-warn">Surcharge volumique</span>';
+  } else {
+    badge.className='badge badge-ok'; badge.textContent='✓ Chargement valide';
+    sbadge.innerHTML='<span class="badge badge-ok">✓ Chargement valide</span>';
+  }
+  document.getElementById('scene-count').textContent=scene.length;
+}
+
+function renderPkgDB() {
+  document.getElementById('pkg-db-list').innerHTML=pkgDB.map(p=>`
+    <div class="db-item">
+      <div class="colordot" style="background:${p.color}"></div>
+      <span class="dn">${p.name}</span>
+      <span class="dd">${p.l}×${p.w}×${p.h}</span>
+      <span class="dx" onclick="delPkg(${p.id})">×</span>
+    </div>`).join('');
+  document.getElementById('pkg-count').textContent=pkgDB.length;
+  const s=document.getElementById('sel-pkg');
+  const v=s.value;
+  s.innerHTML=pkgDB.map(p=>`<option value="${p.id}">${p.name} (${p.l}×${p.w}×${p.h})</option>`).join('');
+  if(v) s.value=v;
+}
+
+function renderTruckDB() {
+  document.getElementById('truck-db-list').innerHTML=truckDB.map(t=>`
+    <div class="db-item">
+      <span class="dn">${t.name}</span>
+      <span class="dd">${t.l}×${t.w}×${t.h}</span>
+      <span class="dx" onclick="delTruck(${t.id})">×</span>
+    </div>`).join('');
+  document.getElementById('truck-count').textContent=truckDB.length;
+  const s=document.getElementById('sel-truck');
+  s.innerHTML=truckDB.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  if(truck) s.value=truck.id;
+}
+
+function renderSceneList() {
+  document.getElementById('scene-list').innerHTML=scene.map(s=>`
+    <div class="scene-item${s.sid===selSid?' selected':''}" onclick="selItem(${s.sid})">
+      <div class="colordot" style="background:${s.color}"></div>
+      <span class="sn">${s.name}</span>
+      <span class="sp">Y${Math.round(s.y)}</span>
+      <span class="dx" onclick="event.stopPropagation();scene=scene.filter(x=>x.sid!==${s.sid});if(selSid===${s.sid}){selSid=-1;updateRightPanel();}renderSceneList();updateStats();draw()">×</span>
+    </div>`).join('');
+}
+
+function renderAll() { renderPkgDB(); renderTruckDB(); renderSceneList(); updateStats(); }
+
+// ─── 3D ENGINE ───────────────────────────────────────────
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+
+function resize() {
+  const wrap=document.getElementById('canvas-wrap');
+  c.width=wrap.clientWidth;
+  c.height=wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+function proj(x,y,z) {
+  const cy=Math.cos(aY),sy=Math.sin(aY),cx2=Math.cos(aX),sx=Math.sin(aX);
+  let rx=x*cy-z*sy, rz=x*sy+z*cy;
+  let ry2=y*cx2-rz*sx, rz2=y*sx+rz*cx2;
+  const W=c.width,H=c.height;
+  const fov=Math.min(W,H)*0.72*zoom;
+  const d=fov/(fov+rz2+350);
+  return [W/2+rx*d, H/2-ry2*d, rz2];
+}
+
+// Unproject screen delta to world XZ plane (for drag)
+function screenDeltaToWorldXZ(dx, dy) {
+  // Approximate: rotate screen movement back through camera angles
+  // Right vector in world = (cos aY, 0, sin aY), Forward = (-sin aY, 0, cos aY)
+  const scale = 1.8 / zoom;
+  const rightX = Math.cos(aY)*scale;
+  const rightZ = Math.sin(aY)*scale;
+  const fwdX = -Math.sin(aY)*scale;
+  const fwdZ = Math.cos(aY)*scale;
+  return {
+    dx: dx*rightX + dy*fwdX,
+    dz: dx*rightZ + dy*fwdZ
+  };
+}
+
+function screenDeltaToWorldY(dy) {
+  // screen up = world Y up (roughly, depending on aX)
+  const scale = 1.8 / zoom;
+  return -dy * scale * (1/Math.max(0.3, Math.cos(aX)));
+}
+
+function drawBox(x,y,z,l,h,w,col,alpha,sel,label) {
+  const cs=[[x,y,z],[x+l,y,z],[x+l,y,z+w],[x,y,z+w],[x,y+h,z],[x+l,y+h,z],[x+l,y+h,z+w],[x,y+h,z+w]];
+  const ps=cs.map(([a,b,c2])=>proj(a,b,c2));
+  const faces=[
+    {v:[4,5,6,7],sh:1.0},{v:[0,1,5,4],sh:0.72},{v:[1,2,6,5],sh:0.50},
+    {v:[3,2,6,7],sh:0.44},{v:[0,3,7,4],sh:0.60},{v:[0,1,2,3],sh:0.30},
+  ];
+  const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16);
+  [...faces].sort((a,b2)=>{
+    const az=a.v.reduce((s,i)=>s+ps[i][2],0)/4;
+    const bz=b2.v.reduce((s,i)=>s+ps[i][2],0)/4;
+    return bz-az;
+  }).forEach(f=>{
+    const vs=f.v.map(i=>ps[i]);
+    ctx.beginPath(); ctx.moveTo(vs[0][0],vs[0][1]);
+    vs.slice(1).forEach(v=>ctx.lineTo(v[0],v[1])); ctx.closePath();
+    const rd=Math.round(r*f.sh),gd=Math.round(g*f.sh),bd=Math.round(b*f.sh);
+    ctx.fillStyle=`rgba(${rd},${gd},${bd},${alpha})`; ctx.fill();
+    ctx.strokeStyle=sel?'rgba(30,80,255,.8)':'rgba(0,0,0,.12)';
+    ctx.lineWidth=sel?2.5:0.7; ctx.stroke();
+  });
+  if(label) {
+    const tp=proj(x+l/2,y+h+5,z+w/2);
+    ctx.fillStyle='rgba(20,20,20,0.8)';
+    ctx.font='bold 12px "DM Sans",sans-serif';
+    ctx.textAlign='center';
+    const tw=ctx.measureText(label).width;
+    ctx.fillStyle='rgba(255,255,255,0.88)';
+    ctx.fillRect(tp[0]-tw/2-4,tp[1]-13,tw+8,17);
+    ctx.fillStyle='#1a1d23';
+    ctx.fillText(label,tp[0],tp[1]);
+    ctx.textAlign='left';
+  }
+}
+
+function drawWire(x,y,z,l,h,w,col,lw) {
+  const cs=[[x,y,z],[x+l,y,z],[x+l,y,z+w],[x,y,z+w],[x,y+h,z],[x+l,y+h,z],[x+l,y+h,z+w],[x,y+h,z+w]];
+  const ps=cs.map(([a,b,c2])=>proj(a,b,c2));
+  const ed=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  ctx.strokeStyle=col; ctx.lineWidth=lw;
+  ed.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(ps[a][0],ps[a][1]);ctx.lineTo(ps[b][0],ps[b][1]);ctx.stroke();});
+}
+
+function drawGrid(ox,oy,oz,l,w) {
+  const step=100;
+  for(let xi=0;xi<=l;xi+=step){
+    const p0=proj(ox+xi,oy,oz),p1=proj(ox+xi,oy,oz+w);
+    ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.stroke();
+  }
+  for(let zi=0;zi<=w;zi+=step){
+    const p0=proj(ox,oy,oz+zi),p1=proj(ox+l,oy,oz+zi);
+    ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.stroke();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0,0,c.width,c.height);
+  if(!truck) return;
+  const ox=-truck.l/2,oy=-truck.h/2,oz=-truck.w/2;
+
+  // Sol léger
+  ctx.fillStyle='rgba(180,200,230,0.18)';
+  const floorPts=[proj(ox,oy,oz),proj(ox+truck.l,oy,oz),proj(ox+truck.l,oy,oz+truck.w),proj(ox,oy,oz+truck.w)];
+  ctx.beginPath();ctx.moveTo(floorPts[0][0],floorPts[0][1]);
+  floorPts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();ctx.fill();
+
+  drawGrid(ox,oy,oz,truck.l,truck.w);
+
+  // Structure camion transparente
+  drawBox(ox,oy,oz,truck.l,truck.h,truck.w,'#7aadee',0.04,false);
+  drawWire(ox,oy,oz,truck.l,truck.h,truck.w,'rgba(37,99,235,0.30)',1.2);
+
+  // Colis triés par profondeur
+  const sorted=[...scene].sort((a,b2)=>{
+    const pa=proj(ox+a.x+a.l/2,oy+a.y+a.h/2,oz+a.z+a.w/2);
+    const pb=proj(ox+b2.x+b2.l/2,oy+b2.y+b2.h/2,oz+b2.z+b2.w/2);
+    return pb[2]-pa[2];
+  });
+  sorted.forEach(s=>{
+    const sel=s.sid===selSid;
+    drawBox(ox+s.x,oy+s.y,oz+s.z,s.l,s.h,s.w,s.color,sel?0.97:0.88,sel,sel?s.name:null);
+  });
+
+  // Dim labels
+  const p0=proj(ox,oy-15,oz),p1=proj(ox+truck.l,oy-15,oz);
+  ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.stroke();
+  ctx.fillStyle='rgba(30,50,100,0.55)';ctx.font='11px "DM Mono",monospace';ctx.textAlign='center';
+  ctx.fillText(`${truck.l} cm`,(p0[0]+p1[0])/2,(p0[1]+p1[1])/2-4);
+  ctx.textAlign='left';
+
+  updateStats();
+}
+
+function hitTest(mx,my) {
+  if(!truck) return -1;
+  const ox=-truck.l/2,oy=-truck.h/2,oz=-truck.w/2;
+  let best=-1,bestZ=Infinity;
+  scene.forEach(s=>{
+    const cs=[
+      [ox+s.x,oy+s.y,oz+s.z],[ox+s.x+s.l,oy+s.y,oz+s.z],
+      [ox+s.x+s.l,oy+s.y,oz+s.z+s.w],[ox+s.x,oy+s.y,oz+s.z+s.w],
+      [ox+s.x,oy+s.y+s.h,oz+s.z],[ox+s.x+s.l,oy+s.y+s.h,oz+s.z],
+      [ox+s.x+s.l,oy+s.y+s.h,oz+s.z+s.w],[ox+s.x,oy+s.y+s.h,oz+s.z+s.w]
+    ];
+    const ps=cs.map(([a,b,c2])=>proj(a,b,c2));
+    let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity,az=0;
+    ps.forEach(p=>{mnX=Math.min(mnX,p[0]);mxX=Math.max(mxX,p[0]);mnY=Math.min(mnY,p[1]);mxY=Math.max(mxY,p[1]);az+=p[2];});
+    az/=8;
+    if(mx>=mnX&&mx<=mxX&&my>=mnY&&my<=mxY&&az<bestZ){bestZ=az;best=s.sid;}
+  });
+  return best;
+}
+
+c.addEventListener('mousedown',e=>{
+  const rect=c.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(c.width/rect.width);
+  const my=(e.clientY-rect.top)*(c.height/rect.height);
+  ds={x:e.clientX,y:e.clientY};
+  pkgDrag=false;
+
+  if(imode==='move-xz'||imode==='move-y') {
+    const hit=hitTest(mx,my);
+    if(hit!==-1) {
+      // Select & start drag
+      selSid=hit;
+      const s=scene.find(x=>x.sid===hit);
+      if(s) { pkgDragOrigin={x:s.x,y:s.y,z:s.z}; pkgDragStart={mx:e.clientX,my:e.clientY}; }
+      pkgDrag=true;
+      updateRightPanel(); renderSceneList(); draw();
+      return;
+    }
+  } else {
+    // orbit mode: click to select
+    const hit=hitTest(mx,my);
+    if(hit!==-1){selSid=hit===selSid?-1:hit;updateRightPanel();renderSceneList();draw();}
+  }
+  drag=true;
+});
+
+window.addEventListener('mousemove',e=>{
+  if(pkgDrag) {
+    const s=scene.find(x=>x.sid===selSid); if(!s) return;
+    const ddx=e.clientX-pkgDragStart.mx;
+    const ddy=e.clientY-pkgDragStart.my;
+    if(imode==='move-xz') {
+      const {dx:wx,dz:wz}=screenDeltaToWorldXZ(ddx,ddy);
+      s.x=pkgDragOrigin.x+wx;
+      s.z=pkgDragOrigin.z+wz;
+    } else {
+      s.y=pkgDragOrigin.y+screenDeltaToWorldY(ddy);
+    }
+    clampPkg(s);
+    updateRightPanel(); renderSceneList(); draw();
+    return;
+  }
+  if(!drag) return;
+  aY+=(e.clientX-ds.x)*0.006;
+  aX=Math.max(-0.88,Math.min(0.88,aX-(e.clientY-ds.y)*0.006));
+  ds={x:e.clientX,y:e.clientY};
+  draw();
+});
+
+window.addEventListener('mouseup',()=>{
+  if(pkgDrag) {
+    // Snap to integer cm
+    const s=scene.find(x=>x.sid===selSid);
+    if(s){s.x=Math.round(s.x);s.y=Math.round(s.y);s.z=Math.round(s.z);}
+    updateRightPanel(); renderSceneList();
+  }
+  drag=false; pkgDrag=false;
+});
+
+c.addEventListener('wheel',e=>{
+  zoom=Math.max(0.25,Math.min(5,zoom-e.deltaY*0.001));
+  draw(); e.preventDefault();
+},{passive:false});
+
+c.addEventListener('click',e=>{
+  if(pkgDrag) return; // don't deselect after drag
+  if(imode==='orbit') {
+    const rect=c.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(c.width/rect.width);
+    const my=(e.clientY-rect.top)*(c.height/rect.height);
+    const hit=hitTest(mx,my);
+    if(hit!==-1){selSid=hit===selSid?-1:hit;updateRightPanel();renderSceneList();draw();}
+  }
+});
+
+renderAll();
+setTimeout(()=>{resize();},50);
+</script>
+</body>
+</html>
