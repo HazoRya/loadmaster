@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadMaster</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#0d0f14;
+  --surface:#13161e;
+  --surface2:#1a1e2a;
+  --surface3:#212636;
+  --border:#ffffff0f;
+  --border2:#ffffff18;
+  --border3:#ffffff24;
+  --text:#e8eaf0;
+  --text2:#9ca3af;
+  --text3:#6b7280;
+  --accent:#3b82f6;
+  --accent-dim:#3b82f620;
+  --accent-glow:#3b82f640;
+  --green:#10b981;
+  --green-dim:#10b98118;
+  --amber:#f59e0b;
+  --amber-dim:#f59e0b18;
+  --red:#ef4444;
+  --red-dim:#ef444418;
+  --r:8px;--r2:6px;--r3:4px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;font-size:13px}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:52px;display:flex;align-items:center;gap:0;
+  background:var(--surface);
+  border-bottom:1px solid var(--border2);
+  flex-shrink:0;
+  padding:0 16px;
+}
+.logo{display:flex;align-items:center;gap:9px;margin-right:20px;flex-shrink:0}
+.logo-mark{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#6366f1);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px}
+.logo-text{font-size:14px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text3);font-weight:400;margin-top:-2px}
+
+.divider-v{width:1px;height:24px;background:var(--border2);margin:0 12px;flex-shrink:0}
+
+.toolbar{display:flex;align-items:center;gap:3px;flex:1;justify-content:center}
+.tbtn{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 11px;font-size:12px;font-family:'Inter',sans-serif;font-weight:500;
+  border:1px solid transparent;border-radius:var(--r2);
+  background:transparent;color:var(--text2);cursor:pointer;transition:all .15s;
+  white-space:nowrap;
+}
+.tbtn:hover{background:var(--surface3);color:var(--text);border-color:var(--border2)}
+.tbtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbtn.on:hover{opacity:.9}
+.tbtn-icon{font-size:13px;opacity:.8}
+
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.status-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;
+  border:1px solid;
+}
+.pill-ok{background:var(--green-dim);color:var(--green);border-color:#10b98130}
+.pill-warn{background:var(--amber-dim);color:var(--amber);border-color:#f59e0b30}
+.pill-err{background:var(--red-dim);color:var(--red);border-color:#ef444430}
+.pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.pct-label{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--text2)}
+
+/* ── LAYOUT ── */
+.layout{flex:1;display:grid;grid-template-columns:264px 1fr 252px;overflow:hidden}
+
+/* ── PANELS ── */
+.panel{
+  background:var(--surface);
+  border-right:1px solid var(--border2);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-r{border-right:none;border-left:1px solid var(--border2)}
+
+.panel-head{
+  padding:14px 16px 12px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.panel-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)}
+
+.tabs{display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{
+  flex:1;padding:7px 4px;font-size:12px;font-family:'Inter',sans-serif;font-weight:500;
+  border:none;border-bottom:2px solid transparent;
+  background:transparent;color:var(--text3);cursor:pointer;text-align:center;transition:all .15s;
+  margin-bottom:-1px;
+}
+.tab:hover{color:var(--text2)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+.tc{display:none;flex:1;overflow-y:auto;padding:14px}
+.tc::-webkit-scrollbar{width:3px}
+.tc::-webkit-scrollbar-thumb{background:var(--border3);border-radius:2px}
+.tc.on{display:block}
+
+/* ── FORM ELEMENTS ── */
+.sec{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;margin-top:4px}
+.fld{margin-bottom:10px}
+.fld label{font-size:11px;color:var(--text2);display:block;margin-bottom:4px;font-weight:500}
+input.fi,select.fi{
+  width:100%;padding:7px 10px;font-size:12px;font-family:'Inter',sans-serif;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);
+  color:var(--text);outline:none;transition:border-color .15s;
+}
+input.fi:focus,select.fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+.frow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.flabels{display:flex;gap:5px;margin-top:3px}
+.flabels span{flex:1;font-size:9px;color:var(--text3);text-align:center}
+
+.btn{
+  width:100%;padding:8px 12px;font-size:12px;font-family:'Inter',sans-serif;font-weight:500;
+  border:1px solid var(--border2);border-radius:var(--r2);
+  background:transparent;color:var(--text);cursor:pointer;transition:all .15s;margin-top:6px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn:hover{background:var(--surface3);border-color:var(--border3)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{opacity:.9;background:var(--accent)}
+.btn-danger{color:var(--red);border-color:var(--red-dim)}
+.btn-danger:hover{background:var(--red-dim)}
+.btn-sm{padding:5px 9px;font-size:11px;width:auto;margin-top:0}
+
+.divv{height:1px;background:var(--border);margin:12px 0}
+
+/* ── STATS ── */
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.stat-card{
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 12px;
+}
+.stat-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.stat-lbl{font-size:10px;color:var(--text3);margin-top:2px;font-weight:500}
+
+.prog-wrap{margin-bottom:12px}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.prog-lbl{font-size:11px;color:var(--text2);font-weight:500}
+.prog-val{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text);font-weight:600}
+.prog-track{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.4,0,.2,1),background .4s}
+
+/* ── DRAG LIST ── */
+.drag-tip{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 10px;margin-bottom:8px;
+  background:var(--accent-dim);border:1px dashed var(--accent-glow);
+  border-radius:var(--r2);font-size:11px;color:var(--accent);font-weight:500;
+}
+.pkg-card{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 10px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);
+  margin-bottom:4px;cursor:grab;user-select:none;
+  transition:all .15s;position:relative;
+}
+.pkg-card:hover{border-color:var(--border3);background:var(--surface3);transform:translateX(2px)}
+.pkg-card:active{cursor:grabbing}
+.pkg-card.dragging-source{opacity:.35;transform:scale(.97)}
+.pkg-color{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.pkg-name{flex:1;font-size:12px;font-weight:500;color:var(--text)}
+.pkg-dim{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
+.pkg-handle{font-size:14px;color:var(--text3);margin-left:2px}
+
+/* ── SCENE LIST ── */
+.scene-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 9px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);
+  margin-bottom:3px;cursor:pointer;transition:all .15s;
+}
+.scene-item:hover{border-color:var(--border2)}
+.scene-item.on{border-color:var(--accent);background:var(--accent-dim)}
+.scene-item .sn{flex:1;font-size:12px;font-weight:500;color:var(--text)}
+.scene-item .sp{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
+.scene-item .dx{color:var(--text3);cursor:pointer;font-size:14px;line-height:1;padding:1px 3px;border-radius:3px}
+.scene-item .dx:hover{color:var(--red);background:var(--red-dim)}
+
+/* ── DB LIST ── */
+.db-item{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 9px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r2);
+  margin-bottom:3px;
+}
+.db-item .dn{flex:1;font-size:12px;font-weight:500;color:var(--text)}
+.db-item .dd{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3)}
+.db-item .dx{color:var(--text3);cursor:pointer;font-size:14px;padding:1px 3px;border-radius:3px}
+.db-item .dx:hover{color:var(--red);background:var(--red-dim)}
+
+/* ── COLOR PICKER ── */
+.cpick{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.cs{width:22px;height:22px;border-radius:5px;cursor:pointer;border:2px solid transparent;transition:all .1s}
+.cs:hover{transform:scale(1.12)}
+.cs.on{border-color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+
+/* ── MOVE PANEL ── */
+.move-pad{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin:8px 0}
+.mb{
+  padding:6px 4px;font-size:11px;font-family:'Inter',sans-serif;font-weight:500;
+  border:1px solid var(--border2);border-radius:var(--r2);
+  background:var(--surface2);color:var(--text2);cursor:pointer;text-align:center;transition:all .1s;
+}
+.mb:hover{background:var(--surface3);border-color:var(--accent);color:var(--accent)}
+.pi{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.pi label{font-size:10px;color:var(--text3);display:block;margin-bottom:3px;font-weight:500}
+
+/* ── CANVAS ── */
+#cw{position:relative;overflow:hidden;background:linear-gradient(180deg,#0a0c12 0%,#0d1018 100%)}
+#cv{display:block;width:100%;height:100%}
+
+/* ── OVERLAYS ── */
+.hud{
+  position:absolute;top:12px;left:12px;
+  background:rgba(13,15,20,.85);backdrop-filter:blur(8px);
+  border:1px solid var(--border2);border-radius:var(--r);
+  padding:8px 12px;font-size:11px;color:var(--text2);
+  pointer-events:none;font-family:'JetBrains Mono',monospace;
+  max-width:260px;
+}
+.hud b{color:var(--text);font-weight:600}
+.hud-dim{font-size:10px;color:var(--text3);margin-top:2px}
+
+.hint-pill{
+  position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  background:rgba(13,15,20,.8);backdrop-filter:blur(8px);
+  border:1px solid var(--border2);border-radius:20px;
+  padding:5px 14px;font-size:10px;color:var(--text3);
+  pointer-events:none;white-space:nowrap;
+}
+
+.view-stack{
+  position:absolute;top:12px;right:12px;
+  display:flex;flex-direction:column;gap:4px;
+}
+.vbtn{
+  padding:6px 11px;font-size:11px;font-family:'Inter',sans-serif;font-weight:500;
+  border:1px solid var(--border2);border-radius:var(--r2);
+  background:rgba(13,15,20,.8);backdrop-filter:blur(8px);
+  color:var(--text2);cursor:pointer;transition:all .15s;text-align:center;
+}
+.vbtn:hover{background:rgba(59,130,246,.2);color:var(--text);border-color:var(--accent)}
+.vbtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── DRAG GHOST ── */
+#ghost{
+  position:fixed;pointer-events:none;z-index:9999;display:none;
+  padding:7px 12px;border-radius:var(--r2);font-size:12px;font-weight:600;
+  color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.5);
+  white-space:nowrap;transform:translate(-50%,-50%);
+  border:1px solid rgba(255,255,255,.2);
+}
+
+/* Drop zone indicator */
+#cw.drop-active::after{
+  content:'Relâcher pour déposer';
+  position:absolute;inset:8px;
+  border:2px dashed rgba(59,130,246,.6);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:600;color:rgba(59,130,246,.8);
+  background:rgba(59,130,246,.06);pointer-events:none;z-index:5;
+}
+
+/* ── RIGHT PANEL DETAIL ── */
+.sel-header{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.sel-color{width:16px;height:16px;border-radius:4px;flex-shrink:0}
+.sel-name{font-size:14px;font-weight:600;color:var(--text)}
+.sel-empty{
+  padding:50px 20px;text-align:center;
+  color:var(--text3);font-size:12px;line-height:1.9;
+}
+.sel-empty svg{margin-bottom:12px;opacity:.3}
+
+.kv-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
+.kv-key{font-size:11px;color:var(--text3);font-weight:500}
+.kv-val{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text);font-weight:500}
+</style>
+</head>
+<body>
+
+<div id="ghost"></div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">📦</div>
+    <div>
+      <div class="logo-text">LoadMaster</div>
+      <div class="logo-sub">Optimiseur de chargement</div>
+    </div>
+  </div>
+  <div class="divider-v"></div>
+  <div class="toolbar">
+    <button class="tbtn on" id="btn-orb" onclick="setOrbit(true)"><span class="tbtn-icon">↻</span>Orbite</button>
+    <button class="tbtn" id="btn-mv" onclick="setOrbit(false)"><span class="tbtn-icon">✥</span>Déplacer</button>
+    <div class="divider-v"></div>
+    <button class="tbtn" onclick="snapAll()"><span class="tbtn-icon">⬇</span>Sol</button>
+    <button class="tbtn" onclick="autoStack()"><span class="tbtn-icon">⧉</span>Auto-ranger</button>
+    <button class="tbtn" onclick="clearScene()"><span class="tbtn-icon">✕</span>Vider</button>
+  </div>
+  <div class="divider-v"></div>
+  <div class="topbar-right">
+    <div id="topbadge" class="status-pill pill-ok"><div class="pill-dot"></div><span>Valide</span></div>
+    <div class="pct-label" id="toppct">0%</div>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- LEFT -->
+<div class="panel">
+  <div class="tabs">
+    <button class="tab on" onclick="sw('sc')">Scène</button>
+    <button class="tab" onclick="sw('pk')">Colis</button>
+    <button class="tab" onclick="sw('tr')">Véhicule</button>
+  </div>
+
+  <!-- SCENE -->
+  <div id="tp-sc" class="tc on">
+    <div class="sec">Véhicule</div>
+    <select class="fi" id="sel-truck" onchange="selTruck()" style="margin-bottom:12px"></select>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-val" id="stv">—</div><div class="stat-lbl">Volume m³</div></div>
+      <div class="stat-card"><div class="stat-val" id="stu">0</div><div class="stat-lbl">Chargé m³</div></div>
+    </div>
+
+    <div class="prog-wrap">
+      <div class="prog-header">
+        <span class="prog-lbl">Remplissage</span>
+        <span class="prog-val" id="ppct">0%</span>
+      </div>
+      <div class="prog-track"><div class="pf prog-fill" id="pf" style="width:0%"></div></div>
+    </div>
+    <div id="sbadge"></div>
+
+    <div class="divv"></div>
+    <div class="sec">Glisser vers la caisse</div>
+    <div class="drag-tip"><span>📦</span> Fais glisser un colis dans la vue 3D</div>
+    <div id="drag-pkg-list"></div>
+
+    <div class="divv"></div>
+    <div class="sec">Dans le camion <span id="scnt" style="background:var(--surface3);padding:1px 6px;border-radius:10px;font-size:10px;color:var(--text2)">0</span></div>
+    <div id="scene-list"></div>
+  </div>
+
+  <!-- COLIS DB -->
+  <div id="tp-pk" class="tc">
+    <div class="sec">Nouveau colis</div>
+    <div class="fld"><label>Nom</label><input type="text" class="fi" id="pk-n" placeholder="Ex: Palette europe"></div>
+    <div class="fld">
+      <label>Dimensions (cm)</label>
+      <div class="frow">
+        <input type="number" class="fi" id="pk-l" value="80">
+        <input type="number" class="fi" id="pk-w" value="60">
+        <input type="number" class="fi" id="pk-h" value="60">
+      </div>
+      <div class="flabels"><span>Longueur</span><span>Largeur</span><span>Hauteur</span></div>
+    </div>
+    <div class="fld"><label>Poids (kg)</label><input type="number" class="fi" id="pk-kg" value="30"></div>
+    <div class="fld"><label>Couleur</label><div class="cpick" id="cpick"></div></div>
+    <button class="btn btn-primary" onclick="savePkg()">Enregistrer le colis</button>
+    <div class="divv"></div>
+    <div class="sec">Catalogue <span id="pkgcnt" style="background:var(--surface3);padding:1px 6px;border-radius:10px;font-size:10px;color:var(--text2)">0</span></div>
+    <div id="pkgdb"></div>
+  </div>
+
+  <!-- TRUCK DB -->
+  <div id="tp-tr" class="tc">
+    <div class="sec">Nouveau véhicule</div>
+    <div class="fld"><label>Nom</label><input type="text" class="fi" id="tr-n" placeholder="Ex: Iveco Daily"></div>
+    <div class="fld">
+      <label>Dimensions soute (cm)</label>
+      <div class="frow">
+        <input type="number" class="fi" id="tr-l" value="410">
+        <input type="number" class="fi" id="tr-w" value="205">
+        <input type="number" class="fi" id="tr-h" value="215">
+      </div>
+      <div class="flabels"><span>Longueur</span><span>Largeur</span><span>Hauteur</span></div>
+    </div>
+    <div class="fld"><label>Charge max (kg)</label><input type="number" class="fi" id="tr-kg" value="1500"></div>
+    <div class="fld"><label>Catégorie</label>
+      <select class="fi" id="tr-cat">
+        <option>Utilitaire léger</option>
+        <option>Fourgon moyen</option>
+        <option selected>Grand fourgon</option>
+        <option>Porteur léger</option>
+        <option>Porteur</option>
+        <option>Semi-remorque</option>
+        <option>Autre</option>
+      </select>
+    </div>
+    <div class="fld"><label>Note (optionnel)</label><input type="text" class="fi" id="tr-note" placeholder="Ex: 13 m³, L3H2..."></div>
+    <button class="btn btn-primary" onclick="saveTruck()">Enregistrer le véhicule</button>
+    <div class="divv"></div>
+    <div class="sec">Flotte <span id="trcnt" style="background:var(--surface3);padding:1px 6px;border-radius:10px;font-size:10px;color:var(--text2)">0</span></div>
+    <div id="trdb"></div>
+  </div>
+</div>
+
+<!-- 3D VIEWPORT -->
+<div id="cw">
+  <canvas id="cv"></canvas>
+  <div class="hud" id="hud">
+    <b>Vue intérieure</b>
+    <div class="hud-dim" id="hud-dim"></div>
+  </div>
+  <div class="hint-pill" id="hintbar">Glisser un colis depuis le panneau · Orbite: cliquer-glisser · Zoom: molette</div>
+  <div class="view-stack">
+    <button class="vbtn on" id="vb-in" onclick="setView('inside')">🚚 Intérieur</button>
+    <button class="vbtn" id="vb-top" onclick="setView('top')">⬆ Dessus</button>
+    <button class="vbtn" id="vb-iso" onclick="setView('iso')">◈ Iso</button>
+  </div>
+</div>
+
+<!-- RIGHT -->
+<div class="panel panel-r">
+  <div class="panel-head"><div class="panel-title">Colis sélectionné</div></div>
+  <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column" id="rp-wrap">
+    <div class="sel-empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <div>Glisse un colis<br>dans la caisse<br>ou sélectionne-en un</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- layout -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────
+const SWATCHES=['#f97316','#ef4444','#a855f7','#3b82f6','#10b981','#eab308','#ec4899','#14b8a6','#f59e0b','#6366f1'];
+let selCol=SWATCHES[0];
+document.querySelectorAll || 0;
+const cpEl=document.getElementById('cpick');
+SWATCHES.forEach((c,i)=>{
+  const s=document.createElement('div');
+  s.className='cs'+(i===0?' on':'');s.style.background=c;
+  s.onclick=()=>{selCol=c;document.querySelectorAll('.cs').forEach(x=>x.classList.remove('on'));s.classList.add('on')};
+  cpEl.appendChild(s);
+});
+
+let pkgDB=[
+  {id:1,name:'Palette europe',l:120,w:80,h:100,kg:800,color:'#f97316'},
+  {id:2,name:'Carton fragile',l:60,w:40,h:50,kg:20,color:'#ef4444'},
+  {id:3,name:'Colis standard',l:40,w:30,h:30,kg:15,color:'#a855f7'},
+  {id:4,name:'Gros électro',l:80,w:60,h:90,kg:60,color:'#3b82f6'},
+  {id:5,name:'Petit carton',l:35,w:25,h:25,kg:8,color:'#10b981'},
+];
+let truckDB=[
+  // Utilitaires légers
+  {id:1,  name:'Renault Kangoo Maxi',        cat:'Utilitaire léger',  l:182, w:122, h:124, kg:600,   note:'L2'},
+  {id:2,  name:'Citroën Berlingo L2',         cat:'Utilitaire léger',  l:213, w:124, h:131, kg:625,   note:'Long'},
+  {id:3,  name:'Peugeot Partner L2',          cat:'Utilitaire léger',  l:213, w:124, h:131, kg:625,   note:'Long'},
+  {id:4,  name:'Volkswagen Caddy Maxi',       cat:'Utilitaire léger',  l:194, w:125, h:127, kg:735,   note:'L2'},
+  // Fourgons moyens
+  {id:5,  name:'Renault Trafic L1H1',         cat:'Fourgon moyen',     l:243, w:167, h:169, kg:1000,  note:'L1H1 — 5.2 m³'},
+  {id:6,  name:'Renault Trafic L2H1',         cat:'Fourgon moyen',     l:303, w:167, h:169, kg:1100,  note:'L2H1 — 6.7 m³'},
+  {id:7,  name:'Renault Trafic L2H2',         cat:'Fourgon moyen',     l:303, w:167, h:197, kg:1100,  note:'L2H2 — 8.6 m³'},
+  {id:8,  name:'Peugeot Expert L2',           cat:'Fourgon moyen',     l:282, w:163, h:168, kg:1000,  note:'Standard'},
+  {id:9,  name:'Citroën Jumpy L2',            cat:'Fourgon moyen',     l:282, w:163, h:168, kg:1000,  note:'Standard'},
+  {id:10, name:'VW Transporter L1H1',         cat:'Fourgon moyen',     l:244, w:168, h:175, kg:975,   note:'T6.1'},
+  // Grands fourgons
+  {id:11, name:'Mercedes Sprinter L1H1',      cat:'Grand fourgon',     l:270, w:173, h:176, kg:1100,  note:'7 m³'},
+  {id:12, name:'Mercedes Sprinter L2H2',      cat:'Grand fourgon',     l:330, w:173, h:196, kg:1200,  note:'10 m³'},
+  {id:13, name:'Mercedes Sprinter L3H2',      cat:'Grand fourgon',     l:389, w:173, h:196, kg:1300,  note:'13.5 m³'},
+  {id:14, name:'Mercedes Sprinter L4H3',      cat:'Grand fourgon',     l:449, w:173, h:226, kg:1400,  note:'17 m³'},
+  {id:15, name:'Iveco Daily L2H2 35S',        cat:'Grand fourgon',     l:310, w:196, h:189, kg:1245,  note:'11.5 m³'},
+  {id:16, name:'Iveco Daily L3H2 35S',        cat:'Grand fourgon',     l:360, w:196, h:189, kg:1245,  note:'13.7 m³'},
+  {id:17, name:'Iveco Daily L4H3 35S',        cat:'Grand fourgon',     l:410, w:196, h:215, kg:1500,  note:'17.2 m³'},
+  {id:18, name:'Renault Master L2H2',         cat:'Grand fourgon',     l:298, w:182, h:191, kg:1100,  note:'10.8 m³'},
+  {id:19, name:'Renault Master L3H2',         cat:'Grand fourgon',     l:363, w:182, h:191, kg:1200,  note:'13 m³'},
+  {id:20, name:'Renault Master L3H3',         cat:'Grand fourgon',     l:363, w:182, h:222, kg:1200,  note:'15 m³'},
+  {id:21, name:'Fiat Ducato L2H2',            cat:'Grand fourgon',     l:299, w:183, h:189, kg:1060,  note:'10.8 m³'},
+  {id:22, name:'Fiat Ducato L4H3',            cat:'Grand fourgon',     l:413, w:183, h:215, kg:1195,  note:'17 m³'},
+  // Camions porteurs
+  {id:23, name:'Renault Maxity 3.5t caisse',  cat:'Porteur léger',     l:420, w:208, h:220, kg:1800,  note:'3.5t PTAC'},
+  {id:24, name:'Iveco Daily 7t caisse',        cat:'Porteur léger',     l:500, w:220, h:230, kg:3800,  note:'7t PTAC'},
+  {id:25, name:'Mercedes Atego 12t caisse',   cat:'Porteur',           l:620, w:240, h:250, kg:7500,  note:'12t PTAC'},
+  {id:26, name:'Renault D 16t caisse',         cat:'Porteur',           l:750, w:245, h:260, kg:10000, note:'16t PTAC'},
+  // Semi-remorques
+  {id:27, name:'Semi-remorque standard',       cat:'Semi-remorque',     l:1360,w:240, h:270, kg:24000, note:'33 palettes'},
+  {id:28, name:'Semi-remorque méga',           cat:'Semi-remorque',     l:1360,w:245, h:300, kg:24000, note:'Haute tolérance'},
+  {id:29, name:'Fourgon 20 palettes',          cat:'Semi-remorque',     l:1150,w:240, h:270, kg:20000, note:'Régional'},
+];
+let pkgId=6,truckId=30,nextSid=1;
+let truck=truckDB.find(t=>t.id===12); // Sprinter L2H2 par défaut
+let boxes=[];
+let selSid=-1,orbitMode=true,currentView='inside';
+
+// ── THREE ─────────────────────────────────────────────────────────────────
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('cv'),antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+
+const scene3=new THREE.Scene();
+scene3.background=new THREE.Color(0x0d0f14);
+scene3.fog=new THREE.Fog(0x0d0f14,800,2200);
+
+const camera=new THREE.PerspectiveCamera(58,1,.5,5000);
+
+// Lights
+scene3.add(new THREE.AmbientLight(0xfff8f0,.55));
+const sun=new THREE.DirectionalLight(0xffeedd,1.0);
+sun.position.set(200,500,100);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.001;scene3.add(sun);
+const fill=new THREE.DirectionalLight(0xc8d8ff,.3);fill.position.set(-300,200,-200);scene3.add(fill);
+const pt=new THREE.PointLight(0xfff5e0,1.0,1500);scene3.add(pt);
+const pt2=new THREE.PointLight(0xfff0d8,.4,800);scene3.add(pt2);
+
+// ── TEXTURES ──────────────────────────────────────────────────────────────
+function mkCardTex(hex){
+  const C=document.createElement('canvas');C.width=C.height=512;const c=C.getContext('2d');
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  // Base gradient
+  const grd=c.createLinearGradient(0,0,512,512);
+  grd.addColorStop(0,`rgba(${Math.min(255,r+20)},${Math.min(255,g+15)},${Math.min(255,b+10)},1)`);
+  grd.addColorStop(1,`rgba(${Math.max(0,r-20)},${Math.max(0,g-15)},${Math.max(0,b-10)},1)`);
+  c.fillStyle=grd;c.fillRect(0,0,512,512);
+  // Corrugated lines
+  for(let i=0;i<512;i+=6){
+    c.fillStyle=`rgba(0,0,0,${.06+Math.sin(i*.15)*.03})`;c.fillRect(0,i,512,3);
+    c.fillStyle=`rgba(255,255,255,${.04+Math.sin(i*.15)*.02})`;c.fillRect(0,i+3,512,2);
+  }
+  // Noise
+  for(let i=0;i<4000;i++){c.fillStyle=`rgba(0,0,0,${Math.random()*.08})`;c.fillRect(Math.random()*512,Math.random()*512,Math.random()*2+1,Math.random()*2+1);}
+  // Cardboard fibers
+  for(let i=0;i<60;i++){
+    c.strokeStyle=`rgba(${Math.max(0,r-40)},${Math.max(0,g-30)},${Math.max(0,b-20)},${Math.random()*.12})`;
+    c.lineWidth=Math.random()*1.5+.3;
+    c.beginPath();const sy=Math.random()*512;c.moveTo(0,sy);c.lineTo(512,sy+Math.random()*40-20);c.stroke();
+  }
+  const t=new THREE.CanvasTexture(C);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;
+}
+
+function mkFloorTex(){
+  const C=document.createElement('canvas');C.width=512;C.height=512;const c=C.getContext('2d');
+  const pw=512/6;
+  for(let p=0;p<6;p++){
+    const x=p*pw,sh=(Math.random()*16-8);
+    const br=130+sh,bg=98+sh*0.7,bb=Math.max(0,15+sh*0.3);
+    c.fillStyle=`rgb(${Math.min(255,br)},${Math.min(255,bg)},${Math.max(0,bb)})`;
+    c.fillRect(x,0,pw-1.5,512);
+    // Wood grain
+    for(let i=0;i<12;i++){
+      const vy=Math.random()*512;
+      c.strokeStyle=`rgba(60,28,4,${Math.random()*.2+.05})`;
+      c.lineWidth=Math.random()*2+.5;
+      c.beginPath();c.moveTo(x,vy);
+      c.bezierCurveTo(x+pw*.4,vy+40,x+pw*.6,vy-40,x+pw,vy+Math.random()*30-15);c.stroke();
+    }
+    // Plank border
+    c.strokeStyle='rgba(0,0,0,.25)';c.lineWidth=1.5;c.strokeRect(x,0,pw-1.5,512);
+    c.fillStyle='rgba(0,0,0,.1)';c.fillRect(x,0,2,512);
+  }
+  // Dirt/wear
+  for(let i=0;i<200;i++){
+    c.fillStyle=`rgba(0,0,0,${Math.random()*.12})`;
+    const fx=Math.random()*512,fy=Math.random()*512,fw=Math.random()*8+2,fh=Math.random()*3+1;
+    c.fillRect(fx,fy,fw,fh);
+  }
+  const t=new THREE.CanvasTexture(C);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;
+}
+
+function mkWallTex(){
+  const C=document.createElement('canvas');C.width=256;C.height=256;const c=C.getContext('2d');
+  c.fillStyle='#ddd5b4';c.fillRect(0,0,256,256);
+  // Horizontal planks
+  for(let i=0;i<256;i+=20){
+    c.fillStyle=`rgba(0,0,0,${.06+Math.random()*.02})`;c.fillRect(0,i,256,1.5);
+    c.fillStyle=`rgba(255,255,255,.05)`;c.fillRect(0,i+2,256,6);
+    // Slight color variation per plank
+    const v=Math.random()*10-5;
+    c.fillStyle=`rgba(${v>0?255:0},${v>0?255:0},${v>0?255:0},${Math.abs(v)*.01})`;
+    c.fillRect(0,i+1,256,18);
+  }
+  for(let i=0;i<600;i++){c.fillStyle=`rgba(0,0,0,${Math.random()*.04})`;c.fillRect(Math.random()*256,Math.random()*256,Math.random()*3,1);}
+  const t=new THREE.CanvasTexture(C);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;
+}
+
+// ── TRUCK BUILD ───────────────────────────────────────────────────────────
+let truckGrp=null,floorMesh=null;
+const meshMap={};
+
+function buildTruck(){
+  if(truckGrp)scene3.remove(truckGrp);
+  truckGrp=new THREE.Group();
+  const TL=truck.l,TW=truck.w,TH=truck.h;
+
+  const wt=mkWallTex();wt.repeat.set(TL/100,TH/80);
+  const ft=mkFloorTex();ft.repeat.set(TL/90,TW/80);
+
+  // Floor
+  const fg=new THREE.PlaneGeometry(TL,TW);
+  floorMesh=new THREE.Mesh(fg,new THREE.MeshLambertMaterial({map:ft}));
+  floorMesh.rotation.x=-Math.PI/2;floorMesh.position.set(TL/2,0,TW/2);
+  floorMesh.receiveShadow=true;floorMesh.name='floor';truckGrp.add(floorMesh);
+
+  // Walls interior
+  const wallMat=new THREE.MeshLambertMaterial({map:wt,side:THREE.BackSide});
+  const boxMesh=new THREE.Mesh(new THREE.BoxGeometry(TL,TH,TW),wallMat);
+  boxMesh.position.set(TL/2,TH/2,TW/2);truckGrp.add(boxMesh);
+
+  // Metal ribs
+  const ribMat=new THREE.MeshStandardMaterial({color:0x8a9aaa,metalness:.6,roughness:.4});
+  const rc=Math.floor(TL/90)+1;
+  for(let i=0;i<=rc;i++){
+    const x=i*(TL/rc);
+    for(const pz of [3,TW-3]){
+      const m=new THREE.Mesh(new THREE.BoxGeometry(5,TH,5),ribMat);
+      m.position.set(x,TH/2,pz);truckGrp.add(m);
+    }
+    // Ceiling rib
+    const cr=new THREE.Mesh(new THREE.BoxGeometry(5,5,TW),ribMat);
+    cr.position.set(x,TH-3,TW/2);truckGrp.add(cr);
+  }
+
+  // Floor rails
+  const railMat=new THREE.MeshLambertMaterial({color:0x606878});
+  for(let z=30;z<TW;z+=Math.floor(TW/5)){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(TL,4,10),railMat);
+    m.position.set(TL/2,2,z);truckGrp.add(m);
+  }
+
+  // Back frame
+  const fmat=new THREE.MeshLambertMaterial({color:0x3a4455});
+  [{p:[TL,TH/2,0],s:[10,TH,10]},{p:[TL,TH/2,TW],s:[10,TH,10]},
+   {p:[TL,TH,TW/2],s:[10,10,TW+10]},{p:[TL,0,TW/2],s:[10,10,TW+10]}
+  ].forEach(({p,s})=>{const m=new THREE.Mesh(new THREE.BoxGeometry(...s),fmat);m.position.set(...p);truckGrp.add(m);});
+
+  scene3.add(truckGrp);
+  pt.position.set(TL/2,TH*.85,TW/2);
+  pt2.position.set(TL*.2,TH*.7,TW/2);
+  setView(currentView);
+}
+
+// ── BOX MESH ──────────────────────────────────────────────────────────────
+function mkBoxMesh(b){
+  const grp=new THREE.Group();
+  const tex=mkCardTex(b.color);tex.repeat.set(b.l/60,b.h/60);
+  const mat=new THREE.MeshLambertMaterial({map:tex});
+  const geo=new THREE.BoxGeometry(b.l,b.h,b.w);
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.castShadow=true;mesh.receiveShadow=true;mesh.position.set(b.l/2,b.h/2,b.w/2);grp.add(mesh);
+
+  // Tape
+  const tc=new THREE.Color(b.color);tc.multiplyScalar(.7);
+  const tmat=new THREE.MeshLambertMaterial({color:tc});
+  for(const y of [b.h*.43,b.h*.57]){
+    const m=new THREE.Mesh(new THREE.BoxGeometry(b.l+1,5,b.w+1),tmat);
+    m.position.set(b.l/2,y,b.w/2);grp.add(m);
+  }
+  const vtm=new THREE.Mesh(new THREE.BoxGeometry(6,b.h+1,b.w+1),tmat);
+  vtm.position.set(b.l/2,b.h/2,b.w/2);grp.add(vtm);
+
+  // Edges
+  const em=new THREE.LineBasicMaterial({color:0x000000,transparent:true,opacity:.25});
+  grp.add(Object.assign(new THREE.LineSegments(new THREE.EdgesGeometry(geo),em),{position:new THREE.Vector3(b.l/2,b.h/2,b.w/2)}));
+
+  grp._mesh=mesh;grp._mat=mat;grp.position.set(b.x,b.y,b.z);grp._sid=b.sid;
+  return grp;
+}
+
+function spawnBox(b){const g=mkBoxMesh(b);scene3.add(g);meshMap[b.sid]=g;}
+function removeBox(sid){const g=meshMap[sid];if(g){scene3.remove(g);delete meshMap[sid];}}
+function syncBox(sid){const b=boxes.find(x=>x.sid===sid);const g=meshMap[sid];if(b&&g)g.position.set(b.x,b.y,b.z);}
+
+function hlBox(sid,on){
+  const g=meshMap[sid];if(!g)return;
+  if(on){
+    g._mesh.material=new THREE.MeshLambertMaterial({color:0xffd700,emissive:0x332200,emissiveIntensity:.3});
+  }else{
+    g._mesh.material=g._mat;
+  }
+}
+
+function clamp(b){
+  if(!truck)return;
+  b.x=Math.max(0,Math.min(truck.l-b.l,b.x));
+  b.y=Math.max(0,Math.min(truck.h-b.h,b.y));
+  b.z=Math.max(0,Math.min(truck.w-b.w,b.z));
+}
+
+// ── CAMERA ────────────────────────────────────────────────────────────────
+let camR=500,camTheta=Math.PI*1.05,camPhi=.3,camTgt=new THREE.Vector3();
+function setView(v){
+  currentView=v;
+  ['in','top','iso'].forEach(x=>document.getElementById('vb-'+x).classList.remove('on'));
+  document.getElementById('vb-'+{inside:'in',top:'top',iso:'iso'}[v]).classList.add('on');
+  if(!truck)return;
+  const TL=truck.l,TW=truck.w,TH=truck.h;
+  if(v==='inside'){camR=TL*.92;camTheta=Math.PI*1.05;camPhi=.28;}
+  else if(v==='top'){camR=Math.max(TL,TW)*1.2;camTheta=Math.PI*1.5;camPhi=1.38;}
+  else{camR=Math.max(TL,TW,TH)*1.55;camTheta=Math.PI*1.22;camPhi=.5;}
+  updCam();
+}
+function updCam(){
+  if(!truck)return;
+  const TL=truck.l,TW=truck.w,TH=truck.h;
+  camTgt.set(TL/2,TH/3.2,TW/2);
+  camera.position.set(
+    camTgt.x+camR*Math.sin(camPhi)*Math.sin(camTheta),
+    camTgt.y+camR*Math.cos(camPhi),
+    camTgt.z+camR*Math.sin(camPhi)*Math.cos(camTheta)
+  );
+  camera.lookAt(camTgt);
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────────────────
+const cw=document.getElementById('cw'),cv=document.getElementById('cv');
+let orbing=false,lastM={x:0,y:0};
+let movSid=-1,movOrig={x:0,z:0},movStart={x:0,y:0};
+const ray=new THREE.Raycaster();
+
+function ndc(e){const r=cv.getBoundingClientRect();return new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);}
+function hitBoxes(e){
+  ray.setFromCamera(ndc(e),camera);
+  const ms=boxes.map(b=>meshMap[b.sid]?meshMap[b.sid]._mesh:null).filter(Boolean);
+  const hits=ray.intersectObjects(ms,false);if(!hits.length)return -1;
+  for(const b of boxes){const g=meshMap[b.sid];if(g&&g._mesh===hits[0].object)return b.sid;}return -1;
+}
+function hitFloor(e){
+  ray.setFromCamera(ndc(e),camera);
+  if(!floorMesh)return null;
+  const hits=ray.intersectObject(floorMesh,false);
+  return hits.length?{x:hits[0].point.x,z:hits[0].point.z}:null;
+}
+
+cv.addEventListener('mousedown',e=>{
+  lastM={x:e.clientX,y:e.clientY};
+  if(!orbitMode){
+    const hit=hitBoxes(e);
+    if(hit!==-1){
+      movSid=hit;const b=boxes.find(x=>x.sid===hit);
+      movOrig={x:b.x,z:b.z};movStart={x:e.clientX,y:e.clientY};
+      hlBox(selSid,false);selSid=hit;hlBox(selSid,true);updRP();renderSceneList();return;
+    }
+  }
+  orbing=true;
+});
+window.addEventListener('mousemove',e=>{
+  if(movSid!==-1&&!orbitMode){
+    const b=boxes.find(x=>x.sid===movSid);if(!b)return;
+    const sc=camR*.0018,dx=e.clientX-movStart.x,dz=e.clientY-movStart.y;
+    const ct=Math.cos(camTheta),st=Math.sin(camTheta);
+    b.x=movOrig.x+dx*ct*sc+dz*st*sc;b.z=movOrig.z-dx*st*sc+dz*ct*sc;
+    clamp(b);syncBox(movSid);updRP();renderSceneList();updateStats();return;
+  }
+  if(!orbing)return;
+  camTheta-=(e.clientX-lastM.x)*.006;
+  camPhi=Math.max(.04,Math.min(Math.PI/2-.02,camPhi+(e.clientY-lastM.y)*.006));
+  lastM={x:e.clientX,y:e.clientY};updCam();
+});
+window.addEventListener('mouseup',e=>{
+  if(movSid!==-1){
+    const b=boxes.find(x=>x.sid===movSid);
+    if(b){b.x=Math.round(b.x);b.z=Math.round(b.z);clamp(b);syncBox(movSid);}
+    movSid=-1;renderSceneList();updateStats();
+  }
+  if(orbing&&Math.abs(e.clientX-lastM.x)<5&&Math.abs(e.clientY-lastM.y)<5&&orbitMode){
+    const hit=hitBoxes(e);hlBox(selSid,false);selSid=hit;if(hit!==-1)hlBox(hit,true);updRP();renderSceneList();
+  }
+  orbing=false;
+});
+cv.addEventListener('wheel',e=>{camR=Math.max(40,Math.min(5000,camR+e.deltaY*.9));updCam();e.preventDefault();},{passive:false});
+
+function setOrbit(on){
+  orbitMode=on;
+  document.getElementById('btn-orb').classList.toggle('on',on);
+  document.getElementById('btn-mv').classList.toggle('on',!on);
+  document.getElementById('hintbar').textContent=on
+    ?'Glisser un colis depuis le panneau · Orbite: cliquer-glisser · Zoom: molette'
+    :'Déplacer colis: glisser · Orbite sur zone vide · Zoom: molette';
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────────────────────
+let dragPkgId=-1;
+const ghostEl=document.getElementById('ghost');
+
+function startDrag(e,pkgId){
+  dragPkgId=pkgId;
+  const pkg=pkgDB.find(p=>p.id===pkgId);
+  ghostEl.style.background=`linear-gradient(135deg,${pkg.color},${pkg.color}cc)`;
+  ghostEl.textContent=`📦 ${pkg.name}`;
+  ghostEl.style.display='block';
+  movGhost(e);cw.classList.add('drop-active');
+  document.querySelectorAll('.pkg-card').forEach(c=>{if(+c.dataset.id===pkgId)c.classList.add('dragging-source');});
+  e.preventDefault();
+}
+function movGhost(e){ghostEl.style.left=e.clientX+'px';ghostEl.style.top=e.clientY+'px';}
+function endDrag(e){
+  if(dragPkgId===-1)return;
+  ghostEl.style.display='none';cw.classList.remove('drop-active');
+  document.querySelectorAll('.pkg-card').forEach(c=>c.classList.remove('dragging-source'));
+  const r=cv.getBoundingClientRect();
+  if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom)dropOnCanvas(e);
+  dragPkgId=-1;
+}
+function dropOnCanvas(e){
+  const pkg=pkgDB.find(p=>p.id===dragPkgId);if(!pkg||!truck)return;
+  if(pkg.l>truck.l||pkg.w>truck.w||pkg.h>truck.h){alert(`Ce colis (${pkg.l}×${pkg.w}×${pkg.h} cm) est plus grand que la soute !`);return;}
+  const fp=hitFloor(e);
+  let px=fp?Math.max(0,Math.min(truck.l-pkg.l,fp.x-pkg.l/2)):0;
+  let pz=fp?Math.max(0,Math.min(truck.w-pkg.w,fp.z-pkg.w/2)):Math.max(0,Math.min(truck.w-pkg.w,truck.w/2-pkg.w/2));
+  let py=0;
+  boxes.forEach(b=>{if(px<b.x+b.l&&px+pkg.l>b.x&&pz<b.z+b.w&&pz+pkg.w>b.z)py=Math.max(py,b.y+b.h);});
+  if(py+pkg.h>truck.h){alert('Pas assez de hauteur !');return;}
+  const item={sid:nextSid++,name:pkg.name,l:pkg.l,w:pkg.w,h:pkg.h,kg:pkg.kg||0,color:pkg.color,x:Math.round(px),y:Math.round(py),z:Math.round(pz)};
+  boxes.push(item);spawnBox(item);
+  hlBox(selSid,false);selSid=item.sid;hlBox(selSid,true);
+  renderSceneList();updateStats();updRP();
+}
+window.addEventListener('mousemove',movGhost);
+window.addEventListener('mouseup',endDrag);
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────
+function snapAll(){boxes.forEach(b=>{b.y=0;syncBox(b.sid);});renderSceneList();updateStats();}
+function autoStack(){
+  if(!truck)return;
+  let cx=0,cz=0,rh=0;
+  boxes.forEach(b=>{
+    if(cx+b.l>truck.l){cx=0;cz+=rh;rh=0;}
+    b.x=cx;b.y=0;b.z=cz;clamp(b);cx+=b.l;rh=Math.max(rh,b.w);syncBox(b.sid);
+  });
+  renderSceneList();updateStats();
+}
+function clearScene(){
+  boxes.forEach(b=>removeBox(b.sid));boxes=[];selSid=-1;updRP();renderSceneList();updateStats();
+}
+function rmSel(){hlBox(selSid,false);removeBox(selSid);boxes=boxes.filter(b=>b.sid!==selSid);selSid=-1;updRP();renderSceneList();updateStats();}
+function selItem(sid){hlBox(selSid,false);selSid=sid===selSid?-1:sid;if(selSid!==-1)hlBox(selSid,true);updRP();renderSceneList();}
+function mv(dx,dy,dz){
+  const b=boxes.find(x=>x.sid===selSid);if(!b)return;
+  b.x+=dx;b.y+=dy;b.z+=dz;clamp(b);
+  b.x=Math.round(b.x);b.y=Math.round(b.y);b.z=Math.round(b.z);
+  syncBox(selSid);updRP();renderSceneList();updateStats();
+}
+function setpos(){
+  const b=boxes.find(x=>x.sid===selSid);if(!b)return;
+  b.x=+document.getElementById('rp-x').value||0;b.y=+document.getElementById('rp-y').value||0;b.z=+document.getElementById('rp-z').value||0;
+  clamp(b);document.getElementById('rp-x').value=Math.round(b.x);document.getElementById('rp-y').value=Math.round(b.y);document.getElementById('rp-z').value=Math.round(b.z);
+  syncBox(selSid);renderSceneList();updateStats();
+}
+
+// ── DB ACTIONS ────────────────────────────────────────────────────────────
+function sw(t){
+  ['sc','pk','tr'].forEach((n,i)=>{document.getElementById('tp-'+n).classList.toggle('on',n===t);document.querySelectorAll('.tab')[i].classList.toggle('on',n===t);});
+}
+function savePkg(){
+  const n=document.getElementById('pk-n').value.trim();if(!n)return;
+  pkgDB.push({id:pkgId++,name:n,l:+document.getElementById('pk-l').value||60,w:+document.getElementById('pk-w').value||40,h:+document.getElementById('pk-h').value||40,kg:+document.getElementById('pk-kg').value||10,color:selCol});
+  document.getElementById('pk-n').value='';renderAll();
+}
+function delPkg(id){pkgDB=pkgDB.filter(p=>p.id!==id);renderAll();}
+function saveTruck(){
+  const n=document.getElementById('tr-n').value.trim();if(!n)return;
+  const cat=document.getElementById('tr-cat').value;
+  const note=document.getElementById('tr-note').value.trim();
+  truckDB.push({id:truckId++,name:n,
+    l:+document.getElementById('tr-l').value||300,
+    w:+document.getElementById('tr-w').value||170,
+    h:+document.getElementById('tr-h').value||190,
+    kg:+document.getElementById('tr-kg').value||1500,
+    cat, note});
+  document.getElementById('tr-n').value='';
+  document.getElementById('tr-note').value='';
+  renderAll();
+}
+function delTruck(id){truckDB=truckDB.filter(t=>t.id!==id);if(truck&&truck.id===id)truck=truckDB[0]||null;renderAll();}
+function selTruck(){const id=+document.getElementById('sel-truck').value;truck=truckDB.find(t=>t.id===id)||truckDB[0];clearScene();buildTruck();renderAll();}
+
+// ── UI RENDER ─────────────────────────────────────────────────────────────
+function updRP(){
+  const b=boxes.find(x=>x.sid===selSid);
+  const hud=document.getElementById('hud');
+  if(b){
+    hud.innerHTML=`<b>${b.name}</b><div class="hud-dim">${b.l} × ${b.w} × ${b.h} cm</div>`;
+  }else{
+    hud.innerHTML=`<b>Vue intérieure</b><div class="hud-dim" id="hud-dim">${truck?`${truck.l} × ${truck.w} × ${truck.h} cm`:''}</div>`;
+  }
+  const wrap=document.getElementById('rp-wrap');
+  if(!b){
+    wrap.innerHTML=`<div class="sel-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:.25"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><div>Glisse un colis<br>dans la caisse<br>ou sélectionne-en un</div></div>`;
+    return;
+  }
+  wrap.innerHTML=`
+    <div class="sel-header">
+      <div class="sel-color" style="background:${b.color}"></div>
+      <div class="sel-name">${b.name}</div>
+    </div>
+    <div style="padding:14px 16px;flex:1;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px">
+        <div class="stat-card"><div class="stat-val" style="font-size:16px">${b.l}</div><div class="stat-lbl">Long. cm</div></div>
+        <div class="stat-card"><div class="stat-val" style="font-size:16px">${b.w}</div><div class="stat-lbl">Larg. cm</div></div>
+        <div class="stat-card"><div class="stat-val" style="font-size:16px">${b.h}</div><div class="stat-lbl">Haut. cm</div></div>
+      </div>
+      <div style="margin-bottom:14px">
+        ${['Volume','Poids'].map((l,i)=>`<div class="kv-row"><span class="kv-key">${l}</span><span class="kv-val">${i===0?(b.l*b.w*b.h/1e6).toFixed(3)+' m³':b.kg+' kg'}</span></div>`).join('')}
+        <div class="kv-row"><span class="kv-key">Position</span><span class="kv-val">${Math.round(b.x)}·${Math.round(b.y)}·${Math.round(b.z)}</span></div>
+      </div>
+      <div class="divv"></div>
+      <div class="sec">Déplacer (5 cm)</div>
+      <div class="move-pad">
+        <div class="mb" onclick="mv(-5,0,0)">← X</div>
+        <div class="mb" onclick="mv(0,5,0)">Y ↑</div>
+        <div class="mb" onclick="mv(5,0,0)">X →</div>
+        <div class="mb" onclick="mv(0,0,-5)">← Z</div>
+        <div class="mb" onclick="mv(0,-5,0)">Y ↓</div>
+        <div class="mb" onclick="mv(0,0,5)">Z →</div>
+      </div>
+      <div class="sec">Position exacte</div>
+      <div class="pi" style="margin-bottom:12px">
+        <div><label>X</label><input type="number" id="rp-x" class="fi" value="${Math.round(b.x)}" oninput="setpos()" style="font-size:12px"></div>
+        <div><label>Y</label><input type="number" id="rp-y" class="fi" value="${Math.round(b.y)}" oninput="setpos()" style="font-size:12px"></div>
+        <div><label>Z</label><input type="number" id="rp-z" class="fi" value="${Math.round(b.z)}" oninput="setpos()" style="font-size:12px"></div>
+      </div>
+      <div class="divv"></div>
+      <button class="btn btn-danger" onclick="rmSel()">Retirer du camion</button>
+    </div>`;
+}
+
+function updateStats(){
+  if(!truck)return;
+  const vT=Math.round(truck.l*truck.w*truck.h/1e6*10)/10;
+  const vU=boxes.reduce((a,b)=>a+b.l*b.w*b.h,0)/1e6;
+  const pct=Math.min(100,Math.round(vU/vT*1000)/10);
+  document.getElementById('stv').textContent=vT;
+  document.getElementById('stu').textContent=Math.round(vU*10)/10;
+  document.getElementById('ppct').textContent=pct+'%';
+  document.getElementById('toppct').textContent=pct+'%';
+  const pf=document.getElementById('pf');
+  pf.style.width=pct+'%';
+  pf.style.background=pct>90?'var(--red)':pct>70?'var(--amber)':'var(--green)';
+  const tb=document.getElementById('topbadge'),sb=document.getElementById('sbadge');
+  if(pct>=100){
+    tb.className='status-pill pill-warn';tb.innerHTML='<div class="pill-dot"></div><span>Surcharge</span>';
+    sb.innerHTML='<div class="status-pill pill-warn" style="width:fit-content"><div class="pill-dot"></div><span>Surcharge volumique</span></div>';
+  }else{
+    tb.className='status-pill pill-ok';tb.innerHTML='<div class="pill-dot"></div><span>Valide</span>';
+    sb.innerHTML='<div class="status-pill pill-ok" style="width:fit-content"><div class="pill-dot"></div><span>Chargement valide</span></div>';
+  }
+  document.getElementById('scnt').textContent=boxes.length;
+}
+
+function renderDragList(){
+  document.getElementById('drag-pkg-list').innerHTML=pkgDB.map(p=>`
+    <div class="pkg-card" data-id="${p.id}" onmousedown="startDrag(event,${p.id})" ondragstart="return false">
+      <div class="pkg-color" style="background:${p.color}"></div>
+      <span class="pkg-name">${p.name}</span>
+      <span class="pkg-dim">${p.l}×${p.w}×${p.h}</span>
+      <span class="pkg-handle">⠿</span>
+    </div>`).join('');
+}
+function renderPkgDB(){
+  document.getElementById('pkgdb').innerHTML=pkgDB.map(p=>`
+    <div class="db-item">
+      <div class="pkg-color" style="background:${p.color}"></div>
+      <span class="dn">${p.name}</span><span class="dd">${p.l}×${p.w}×${p.h}</span>
+      <span class="dx" onclick="delPkg(${p.id})">×</span>
+    </div>`).join('');
+  document.getElementById('pkgcnt').textContent=pkgDB.length;
+  const s=document.getElementById('sel-pkg');if(s){const v=s.value;s.innerHTML=pkgDB.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');if(v)s.value=v;}
+}
+function renderTruckDB(){
+  // Group by category
+  const cats=[...new Set(truckDB.map(t=>t.cat||'Autre'))];
+  document.getElementById('trdb').innerHTML=cats.map(cat=>{
+    const items=truckDB.filter(t=>(t.cat||'Autre')===cat);
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:4px;padding:0 2px">${cat}</div>
+      ${items.map(t=>`
+      <div class="db-item" style="margin-bottom:3px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px;font-family:'JetBrains Mono',monospace">${t.l}×${t.w}×${t.h} cm · ${t.kg} kg${t.note?' · <span style="color:var(--accent)">'+t.note+'</span>':''}</div>
+        </div>
+        <span class="dx" onclick="delTruck(${t.id})">×</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+  document.getElementById('trcnt').textContent=truckDB.length;
+  // Build grouped select
+  const s=document.getElementById('sel-truck');
+  s.innerHTML=cats.map(cat=>{
+    const items=truckDB.filter(t=>(t.cat||'Autre')===cat);
+    return `<optgroup label="${cat}">${items.map(t=>`<option value="${t.id}">${t.name} — ${t.l}×${t.w}×${t.h} (${t.kg}kg)${t.note?' ['+t.note+']':''}</option>`).join('')}</optgroup>`;
+  }).join('');
+  if(truck)s.value=truck.id;
+}
+function renderSceneList(){
+  document.getElementById('scene-list').innerHTML=boxes.map(b=>`
+    <div class="scene-item${b.sid===selSid?' on':''}" onclick="selItem(${b.sid})">
+      <div class="pkg-color" style="background:${b.color}"></div>
+      <span class="sn">${b.name}</span>
+      <span class="sp">${Math.round(b.x)}·${Math.round(b.y)}·${Math.round(b.z)}</span>
+      <span class="dx" onclick="event.stopPropagation();hlBox(${b.sid},false);removeBox(${b.sid});boxes=boxes.filter(x=>x.sid!==${b.sid});if(selSid===${b.sid}){selSid=-1;updRP();}renderSceneList();updateStats()">×</span>
+    </div>`).join('');
+}
+function renderAll(){renderDragList();renderPkgDB();renderTruckDB();renderSceneList();updateStats();}
+
+// ── RESIZE & LOOP ─────────────────────────────────────────────────────────
+function onResize(){const W=cw.clientWidth,H=cw.clientHeight;renderer.setSize(W,H);camera.aspect=W/H;camera.updateProjectionMatrix();}
+window.addEventListener('resize',()=>{onResize();updCam();});
+(function loop(){requestAnimationFrame(loop);renderer.render(scene3,camera);})();
+
+renderAll();buildTruck();
+setTimeout(()=>{onResize();updCam();},50);
+</script>
+</body>
+</html>
