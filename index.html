@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadMaster — Optimiseur de chargement</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090b;--s1:#111113;--s2:#18181b;--s3:#27272a;--s4:#3f3f46;
+  --b1:rgba(255,255,255,.06);--b2:rgba(255,255,255,.10);--b3:rgba(255,255,255,.16);
+  --t1:#fafafa;--t2:#a1a1aa;--t3:#71717a;--t4:#52525b;
+  --accent:#2563eb;--accent-h:#1d4ed8;--accent-dim:rgba(37,99,235,.15);
+  --green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --r:8px;--r-sm:5px;--r-lg:12px;
+}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;overflow:hidden}
+
+/* ── AUTH ── */
+#auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .3s}
+#auth-screen.hidden{opacity:0;pointer-events:none}
+.auth-box{width:100%;max-width:400px;padding:24px;background:var(--s1);border:1px solid var(--b2);border-radius:var(--r-lg)}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.auth-logo svg{width:32px;height:32px}
+.auth-logo span{font-size:20px;font-weight:700;letter-spacing:-.4px}
+.auth-logo em{font-style:normal;color:var(--accent)}
+.auth-tabs{display:flex;gap:4px;background:var(--b1);border-radius:var(--r-sm);padding:3px;margin-bottom:24px}
+.auth-tab{flex:1;padding:7px;text-align:center;border-radius:4px;cursor:pointer;font-weight:500;color:var(--t3);transition:all .15s}
+.auth-tab.active{background:var(--s3);color:var(--t1)}
+.auth-form{display:flex;flex-direction:column;gap:14px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--t2);margin-bottom:6px}
+.field input{width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--r-sm);color:var(--t1);font-family:inherit;font-size:13px;outline:none;transition:border-color .15s}
+.field input:focus{border-color:var(--accent)}
+.field input::placeholder{color:var(--t4)}
+.btn{padding:10px 16px;border:none;border-radius:var(--r-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-h)}
+.btn-secondary{background:var(--b1);color:var(--t2);border:1px solid var(--b2)}
+.btn-secondary:hover{background:var(--b2);color:var(--t1)}
+.btn-ghost{background:transparent;color:var(--t3);padding:6px 10px}
+.btn-ghost:hover{color:var(--t1)}
+.btn-full{width:100%}
+.auth-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);padding:10px 12px;border-radius:var(--r-sm);font-size:12px}
+.auth-demo{text-align:center;margin-top:12px}
+.auth-demo button{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit}
+
+/* ── LAYOUT ── */
+#app{display:grid;grid-template-rows:48px 1fr;height:100vh;opacity:0;transition:opacity .3s}
+#app.visible{opacity:1}
+header{background:var(--s1);border-bottom:1px solid var(--b1);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:10}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;letter-spacing:-.3px;margin-right:8px}
+.logo em{font-style:normal;color:var(--accent)}
+.logo svg{width:22px;height:22px}
+.tabs{display:flex;gap:2px}
+.tab{padding:6px 14px;border-radius:var(--r-sm);cursor:pointer;font-size:13px;font-weight:500;color:var(--t3);border:none;background:transparent;font-family:inherit;transition:all .15s}
+.tab.active{background:var(--b2);color:var(--t1)}
+.tab:hover:not(.active){color:var(--t2)}
+header .spacer{flex:1}
+.user-badge{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 8px;background:var(--b1);border-radius:24px;cursor:pointer}
+.user-badge:hover{background:var(--b2)}
+.avatar{width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.user-name{font-size:12px;font-weight:500;color:var(--t2)}
+#logout-btn{background:none;border:none;color:var(--t4);cursor:pointer;font-size:11px;padding:4px 6px;border-radius:4px;font-family:inherit}
+#logout-btn:hover{color:var(--t1);background:var(--b1)}
+
+/* ── PANELS ── */
+.panel{display:none;height:100%;overflow:hidden}
+.panel.active{display:flex}
+.sidebar{width:280px;min-width:280px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow:hidden}
+.main{flex:1;overflow:hidden;position:relative}
+
+/* ── SIDEBAR ── */
+.sidebar-header{padding:14px 16px 10px;border-bottom:1px solid var(--b1);flex-shrink:0}
+.sidebar-title{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:2px}
+.sidebar-sub{font-size:11px;color:var(--t3)}
+.sidebar-scroll{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.sidebar-scroll::-webkit-scrollbar{width:4px}
+.sidebar-scroll::-webkit-scrollbar-track{background:transparent}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--b3);border-radius:2px}
+.sidebar-actions{padding:12px;border-top:1px solid var(--b1);display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.section-label{font-size:10px;font-weight:600;color:var(--t4);letter-spacing:.6px;text-transform:uppercase;padding:4px 0 6px;margin-top:4px}
+select,input[type=number]{width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--r-sm);color:var(--t1);font-family:inherit;font-size:12px;outline:none}
+select:focus,input[type=number]:focus{border-color:var(--accent)}
+select option{background:var(--s2)}
+
+/* ── PACKAGE CARD ── */
+.pkg-card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 12px;cursor:grab;transition:border-color .15s,transform .1s,box-shadow .1s;user-select:none;position:relative}
+.pkg-card:hover{border-color:var(--b3);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.pkg-card.dragging-source{opacity:.4}
+.pkg-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.pkg-name{font-size:12px;font-weight:600;color:var(--t1)}
+.pkg-dims{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.pkg-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.pkg-card:hover .pkg-actions{opacity:1}
+.pkg-action-btn{background:none;border:none;color:var(--t4);cursor:pointer;padding:3px 5px;border-radius:3px;font-size:11px;font-family:inherit}
+.pkg-action-btn:hover{background:var(--b2);color:var(--t1)}
+.pkg-color-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pkg-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+.pkg-volume{font-size:10px;color:var(--t4)}
+.pkg-weight{font-size:10px;color:var(--t4)}
+.pkg-qty-ctrl{display:flex;align-items:center;gap:6px}
+.qty-btn{background:var(--b1);border:none;color:var(--t2);width:20px;height:20px;border-radius:3px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.qty-btn:hover{background:var(--b2);color:var(--t1)}
+.qty-val{font-size:12px;font-weight:600;min-width:18px;text-align:center}
+
+/* ── DRAG GHOST ── */
+#drag-ghost{position:fixed;pointer-events:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;padding:8px 12px;border-radius:var(--r-sm);opacity:.9;z-index:9999;display:none;white-space:nowrap}
+
+/* ── STATS BAR ── */
+.stats-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(9,9,11,.85);backdrop-filter:blur(8px);border-top:1px solid var(--b1);display:flex;gap:0;height:40px;z-index:5}
+.stat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid var(--b1);gap:1px}
+.stat:last-child{border-right:none}
+.stat-val{font-size:12px;font-weight:700;color:var(--t1)}
+.stat-lbl{font-size:9px;color:var(--t4);text-transform:uppercase;letter-spacing:.4px}
+.stat-val.ok{color:var(--green)}
+.stat-val.warn{color:var(--amber)}
+.stat-val.bad{color:var(--red)}
+
+/* ── TOOLBAR ── */
+.toolbar{position:absolute;top:12px;right:12px;display:flex;gap:6px;z-index:5}
+.tool-btn{background:rgba(9,9,11,.8);backdrop-filter:blur(8px);border:1px solid var(--b2);color:var(--t2);width:34px;height:34px;border-radius:var(--r-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:14px}
+.tool-btn:hover{background:var(--b2);color:var(--t1);border-color:var(--b3)}
+.tool-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.tooltip{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(9,9,11,.85);backdrop-filter:blur(8px);border:1px solid var(--b2);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;color:var(--t2);z-index:5;pointer-events:none;white-space:nowrap}
+
+/* ── 3D CANVAS ── */
+#canvas-wrap{position:absolute;inset:0;bottom:40px}
+#three-canvas{display:block;width:100%;height:100%}
+#label-overlay{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.box-label{position:absolute;transform:translate(-50%,-100%);background:rgba(9,9,11,.9);border:1px solid var(--b2);color:var(--t1);font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;pointer-events:none;white-space:nowrap}
+.box-label.selected{border-color:var(--accent);color:var(--accent)}
+
+/* ── SELECTED BOX PANEL ── */
+#selection-panel{position:absolute;top:12px;left:12px;background:rgba(9,9,11,.9);backdrop-filter:blur(8px);border:1px solid var(--b2);border-radius:var(--r);padding:12px 14px;min-width:180px;z-index:6;display:none}
+#selection-panel h4{font-size:12px;font-weight:600;margin-bottom:8px;color:var(--t1)}
+.sel-row{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--t2);margin-bottom:4px}
+.sel-row span:last-child{color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:10px}
+#del-box-btn{margin-top:10px;width:100%;padding:6px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:var(--r-sm);cursor:pointer;font-size:11px;font-family:inherit}
+#del-box-btn:hover{background:rgba(239,68,68,.2)}
+
+/* ── FORM MODAL ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:500;display:none}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r-lg);padding:20px;width:360px;max-width:90vw}
+.modal h3{font-size:15px;font-weight:700;margin-bottom:16px}
+.modal-form{display:flex;flex-direction:column;gap:10px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+
+/* ── DB PANEL ── */
+.db-panel-wrap{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.db-toolbar{padding:12px 16px;border-bottom:1px solid var(--b1);display:flex;gap:8px;align-items:center;flex-shrink:0}
+.db-search{flex:1;padding:7px 10px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--r-sm);color:var(--t1);font-family:inherit;font-size:12px;outline:none}
+.db-search:focus{border-color:var(--accent)}
+.db-table-wrap{flex:1;overflow-y:auto;padding:12px 16px}
+table{width:100%;border-collapse:collapse}
+thead tr{position:sticky;top:0;background:var(--s1)}
+th{text-align:left;font-size:10px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.5px;padding:6px 10px;border-bottom:1px solid var(--b1)}
+td{padding:8px 10px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--b1)}
+tr:hover td{background:var(--b1)}
+td:first-child{font-weight:500;color:var(--t1)}
+td.mono{font-family:'JetBrains Mono',monospace;font-size:11px}
+.tag{display:inline-flex;padding:2px 7px;background:var(--b1);border-radius:20px;font-size:10px;font-weight:500;color:var(--t3)}
+.row-actions{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+tr:hover .row-actions{opacity:1}
+.row-btn{background:none;border:none;color:var(--t4);cursor:pointer;padding:2px 5px;border-radius:3px;font-size:11px}
+.row-btn:hover{background:var(--b2);color:var(--t1)}
+.row-btn.danger:hover{color:var(--red)}
+
+/* ── TOUR PANEL ── */
+.tour-wrap{height:100%;display:flex}
+.tour-sidebar{width:280px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;overflow:hidden}
+.tour-sidebar-header{padding:14px 16px;border-bottom:1px solid var(--b1);flex-shrink:0}
+.tour-sidebar-scroll{flex:1;overflow-y:auto;padding:10px}
+.tour-sidebar-actions{padding:12px;border-top:1px solid var(--b1);flex-shrink:0}
+.stop-card{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;position:relative}
+.stop-card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.stop-num{width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stop-name{font-size:12px;font-weight:600;color:var(--t1);flex:1}
+.stop-del-btn{background:none;border:none;color:var(--t4);cursor:pointer;font-size:14px;line-height:1;padding:2px}
+.stop-del-btn:hover{color:var(--red)}
+.stop-pkgs{display:flex;flex-direction:column;gap:4px}
+.stop-pkg-row{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--t3)}
+.stop-pkg-name{color:var(--t1)}
+.tour-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.tour-header{padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.tour-header h3{font-size:14px;font-weight:600}
+.tour-body{flex:1;overflow:hidden;position:relative}
+.tour-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--t4)}
+.tour-hint svg{width:48px;height:48px;margin:0 auto 12px;display:block;opacity:.3}
+.tour-hint p{font-size:13px}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:32px 16px;color:var(--t4)}
+.empty svg{width:40px;height:40px;margin:0 auto 10px;display:block;opacity:.3}
+.empty p{font-size:12px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--s3);border:1px solid var(--b3);color:var(--t1);padding:10px 18px;border-radius:24px;font-size:13px;font-weight:500;z-index:9999;transition:transform .25s;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── UTIL ── */
+.color-chip{width:10px;height:10px;border-radius:2px;display:inline-block;flex-shrink:0}
+.flex-center{display:flex;align-items:center;justify-content:center}
+.gap-8{gap:8px}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#2563eb"/><path d="M6 22V12l10-5 10 5v10l-10 5-10-5z" stroke="#fff" stroke-width="1.5" fill="none"/><path d="M6 12l10 5 10-5M16 17v10" stroke="#fff" stroke-width="1.5"/></svg>
+      <span>Load<em>Master</em></span>
+    </div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Connexion</div>
+      <div class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Créer un compte</div>
+    </div>
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="auth-form">
+        <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="vous@exemple.fr" autocomplete="email"></div>
+        <div class="field"><label>Mot de passe</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+        <div id="login-error" class="auth-error" style="display:none"></div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()">Se connecter</button>
+      </div>
+      <div class="auth-demo">
+        <button onclick="demoLogin()">Connexion démo (sans inscription)</button>
+      </div>
+    </div>
+    <!-- REGISTER -->
+    <div id="form-register" style="display:none">
+      <div class="auth-form">
+        <div class="field"><label>Prénom &amp; nom</label><input type="text" id="reg-name" placeholder="Jean Dupont"></div>
+        <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="vous@exemple.fr" autocomplete="email"></div>
+        <div class="field"><label>Mot de passe</label><input type="password" id="reg-pass" placeholder="8 caractères minimum"></div>
+        <div id="reg-error" class="auth-error" style="display:none"></div>
+        <button class="btn btn-primary btn-full" onclick="doRegister()">Créer mon compte</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 22 22" fill="none"><rect width="22" height="22" rx="6" fill="#2563eb"/><path d="M4 15V9l7-3.5L18 9v6l-7 3.5L4 15z" stroke="#fff" stroke-width="1.2" fill="none"/><path d="M4 9l7 3.5L18 9M11 12.5v7" stroke="#fff" stroke-width="1.2"/></svg>
+      <span>Load<em>Master</em></span>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-panel="loader" onclick="switchPanel('loader')">Chargement 3D</button>
+      <button class="tab" data-panel="tour" onclick="switchPanel('tour')">Tournée</button>
+      <button class="tab" data-panel="db-pkgs" onclick="switchPanel('db-pkgs')">Colis</button>
+      <button class="tab" data-panel="db-trucks" onclick="switchPanel('db-trucks')">Véhicules</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="user-badge">
+      <div class="avatar" id="user-avatar">?</div>
+      <span class="user-name" id="user-display">—</span>
+    </div>
+    <button id="logout-btn" onclick="doLogout()">Déconnexion</button>
+  </header>
+
+  <!-- ── PANEL: CHARGEMENT 3D ── -->
+  <div id="panel-loader" class="panel active">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Colis à charger</div>
+        <div class="sidebar-sub">Glissez sur le camion</div>
+      </div>
+      <div class="sidebar-scroll" id="pkg-list">
+        <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2M8 7V5a2 2 0 014 0"/></svg><p>Aucun colis.<br>Ajoutez-en dans l'onglet Colis.</p></div>
+      </div>
+      <div class="sidebar-actions">
+        <div class="section-label">Véhicule</div>
+        <select id="truck-select" onchange="changeTruck()"></select>
+        <div class="section-label" style="margin-top:4px">Infos camion</div>
+        <div id="truck-info" style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;line-height:1.8"></div>
+        <button class="btn btn-secondary btn-full" style="margin-top:8px" onclick="clearAll()">Vider le camion</button>
+      </div>
+    </div>
+    <div class="main" id="loader-main">
+      <div id="canvas-wrap">
+        <canvas id="three-canvas"></canvas>
+        <div id="label-overlay"></div>
+      </div>
+      <div class="stats-bar" id="stats-bar">
+        <div class="stat"><div class="stat-val" id="stat-vol">0%</div><div class="stat-lbl">Volume</div></div>
+        <div class="stat"><div class="stat-val" id="stat-poids">0 kg</div><div class="stat-lbl">Poids</div></div>
+        <div class="stat"><div class="stat-val" id="stat-colis">0</div><div class="stat-lbl">Colis</div></div>
+        <div class="stat"><div class="stat-val" id="stat-restant">—</div><div class="stat-lbl">Restant</div></div>
+      </div>
+      <div class="toolbar">
+        <button class="tool-btn" title="Réinitialiser la caméra" onclick="resetCamera()">⌂</button>
+        <button class="tool-btn" id="btn-labels" title="Afficher/masquer les étiquettes" onclick="toggleLabels()">🏷</button>
+        <button class="tool-btn" id="btn-grid" title="Afficher/masquer la grille" onclick="toggleGrid()">⊞</button>
+      </div>
+      <div id="selection-panel">
+        <h4 id="sel-name">Colis sélectionné</h4>
+        <div class="sel-row"><span>Dimensions</span><span id="sel-dims">—</span></div>
+        <div class="sel-row"><span>Poids</span><span id="sel-weight">—</span></div>
+        <div class="sel-row"><span>Client</span><span id="sel-client">—</span></div>
+        <button id="del-box-btn" onclick="deleteSelected()">Retirer du camion</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: TOURNÉE ── -->
+  <div id="panel-tour" class="panel">
+    <div class="tour-wrap">
+      <div class="tour-sidebar">
+        <div class="tour-sidebar-header">
+          <div class="sidebar-title">Arrêts de la tournée</div>
+          <div class="sidebar-sub">Ordre de livraison</div>
+        </div>
+        <div class="tour-sidebar-scroll" id="stops-list">
+          <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><p>Aucun arrêt.<br>Ajoutez en dessous.</p></div>
+        </div>
+        <div class="tour-sidebar-actions">
+          <input type="text" id="stop-name-input" placeholder="Nom du client / arrêt" style="margin-bottom:8px">
+          <div id="stop-pkgs-select" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;max-height:160px;overflow-y:auto" class="sidebar-scroll"></div>
+          <button class="btn btn-secondary btn-full" onclick="addStop()">+ Ajouter l'arrêt</button>
+          <button class="btn btn-primary btn-full" style="margin-top:6px" onclick="computeTour()">Calculer le chargement LIFO</button>
+        </div>
+      </div>
+      <div class="tour-main">
+        <div class="tour-header">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 17H7A5 5 0 017 7h10a5 5 0 010 10h-2M9 12h6"/></svg>
+          <h3>Plan de chargement optimisé</h3>
+          <div class="spacer"></div>
+          <div id="tour-vehicle-info" style="font-size:11px;color:var(--t3)"></div>
+        </div>
+        <div class="tour-body" id="tour-body">
+          <div class="tour-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8zM5.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM18.5 21a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg><p>Ajoutez des arrêts et des colis,<br>puis cliquez sur "Calculer".</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: DB COLIS ── -->
+  <div id="panel-db-pkgs" class="panel">
+    <div class="db-panel-wrap">
+      <div class="db-toolbar">
+        <input class="db-search" type="text" id="pkg-search" placeholder="Rechercher un colis…" oninput="renderPkgTable()">
+        <button class="btn btn-primary" onclick="openAddPkg()">+ Nouveau colis</button>
+      </div>
+      <div class="db-table-wrap">
+        <table>
+          <thead><tr><th>Nom</th><th>L × l × h (cm)</th><th>Poids</th><th>Référence</th><th></th></tr></thead>
+          <tbody id="pkg-table-body"></tbody>
+        </table>
+        <div id="pkg-table-empty" class="empty" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2M8 7V5a2 2 0 014 0"/></svg><p>Aucun colis enregistré.<br>Cliquez sur "+ Nouveau colis" pour commencer.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: DB VÉHICULES ── -->
+  <div id="panel-db-trucks" class="panel">
+    <div class="db-panel-wrap">
+      <div class="db-toolbar">
+        <input class="db-search" type="text" id="truck-search" placeholder="Rechercher un véhicule…" oninput="renderTruckTable()">
+        <button class="btn btn-primary" onclick="openAddTruck()">+ Nouveau véhicule</button>
+      </div>
+      <div class="db-table-wrap">
+        <table>
+          <thead><tr><th>Modèle</th><th>L × l × h (cm)</th><th>Charge max</th><th>Volume</th><th>Catégorie</th><th></th></tr></thead>
+          <tbody id="truck-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: COLIS -->
+<div class="modal-backdrop" id="modal-pkg">
+  <div class="modal">
+    <h3 id="modal-pkg-title">Nouveau colis</h3>
+    <div class="modal-form">
+      <div class="field"><label>Nom / référence</label><input type="text" id="pkg-f-name" placeholder="Carton standard A4"></div>
+      <div class="form-row">
+        <div class="field"><label>Longueur (cm)</label><input type="number" id="pkg-f-l" placeholder="60" min="1"></div>
+        <div class="field"><label>Largeur (cm)</label><input type="number" id="pkg-f-w" placeholder="40" min="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Hauteur (cm)</label><input type="number" id="pkg-f-h" placeholder="30" min="1"></div>
+        <div class="field"><label>Poids (kg)</label><input type="number" id="pkg-f-kg" placeholder="5" min="0" step="0.1"></div>
+      </div>
+      <div class="field"><label>Référence interne (optionnel)</label><input type="text" id="pkg-f-ref" placeholder="REF-001"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-pkg')">Annuler</button>
+      <button class="btn btn-primary" onclick="savePkg()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: VÉHICULE -->
+<div class="modal-backdrop" id="modal-truck">
+  <div class="modal">
+    <h3 id="modal-truck-title">Nouveau véhicule</h3>
+    <div class="modal-form">
+      <div class="field"><label>Modèle</label><input type="text" id="truck-f-name" placeholder="Renault Master L2H2"></div>
+      <div class="form-row">
+        <div class="field"><label>Longueur cargo (cm)</label><input type="number" id="truck-f-l" placeholder="340" min="50"></div>
+        <div class="field"><label>Largeur cargo (cm)</label><input type="number" id="truck-f-w" placeholder="175" min="50"></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Hauteur cargo (cm)</label><input type="number" id="truck-f-h" placeholder="190" min="50"></div>
+        <div class="field"><label>Charge max (kg)</label><input type="number" id="truck-f-kg" placeholder="1200" min="100"></div>
+      </div>
+      <div class="field"><label>Catégorie</label>
+        <select id="truck-f-cat">
+          <option>Utilitaire léger</option><option>Fourgon</option><option>Grand fourgon</option><option>Porteur</option><option>Semi-remorque</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-truck')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveTruck()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="drag-ghost">📦 Colis</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════════ */
+const USERS_KEY='lm_users';const SESSION_KEY='lm_session';
+let currentUser=null;
+
+function getUsers(){try{return JSON.parse(localStorage.getItem(USERS_KEY)||'[]');}catch(e){return[];}}
+function saveUsers(u){localStorage.setItem(USERS_KEY,JSON.stringify(u));}
+function switchAuthTab(t){
+  document.getElementById('tab-login').classList.toggle('active',t==='login');
+  document.getElementById('tab-register').classList.toggle('active',t==='register');
+  document.getElementById('form-login').style.display=t==='login'?'':'none';
+  document.getElementById('form-register').style.display=t==='register'?'':'none';
+}
+function doLogin(){
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  const err=document.getElementById('login-error');
+  err.style.display='none';
+  const users=getUsers();
+  const u=users.find(x=>x.email===email&&x.pass===pass);
+  if(!u){err.textContent='Email ou mot de passe incorrect.';err.style.display='';return;}
+  startSession(u);
+}
+function doRegister(){
+  const name=document.getElementById('reg-name').value.trim();
+  const email=document.getElementById('reg-email').value.trim().toLowerCase();
+  const pass=document.getElementById('reg-pass').value;
+  const err=document.getElementById('reg-error');
+  err.style.display='none';
+  if(!name||!email||!pass){err.textContent='Tous les champs sont obligatoires.';err.style.display='';return;}
+  if(pass.length<6){err.textContent='Mot de passe trop court (6 caractères minimum).';err.style.display='';return;}
+  const users=getUsers();
+  if(users.find(x=>x.email===email)){err.textContent='Cet email est déjà utilisé.';err.style.display='';return;}
+  const u={email,pass,name,created:Date.now()};
+  users.push(u);saveUsers(users);startSession(u);
+}
+function demoLogin(){
+  let users=getUsers();
+  let u=users.find(x=>x.email==='demo@loadmaster.fr');
+  if(!u){u={email:'demo@loadmaster.fr',pass:'demo1234',name:'Compte Démo',created:Date.now()};users.push(u);saveUsers(users);}
+  startSession(u);
+}
+function startSession(u){
+  currentUser=u;
+  localStorage.setItem(SESSION_KEY,JSON.stringify(u));
+  document.getElementById('user-display').textContent=u.name.split(' ')[0];
+  document.getElementById('user-avatar').textContent=u.name[0].toUpperCase();
+  document.getElementById('auth-screen').classList.add('hidden');
+  const app=document.getElementById('app');
+  app.classList.add('visible');
+  loadUserData();
+  setTimeout(()=>initThree(),200);
+}
+function doLogout(){
+  localStorage.removeItem(SESSION_KEY);
+  currentUser=null;
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app').classList.remove('visible');
+  clearThree();
+}
+function tryAutoLogin(){
+  try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(s){const u=getUsers().find(x=>x.email===s.email&&x.pass===s.pass);if(u){startSession(u);return;}}}catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════
+   DATA — STORAGE
+═══════════════════════════════════════════════════════ */
+function uKey(suffix){return'lm_'+currentUser.email+'_'+suffix;}
+let userPackages=[];let userTrucks=[];
+
+const DEFAULT_TRUCKS=[
+  {id:'k1',name:'Renault Kangoo Maxi',l:182,w:122,h:124,kg:650,cat:'Utilitaire léger'},
+  {id:'k2',name:'Citroën Berlingo L2',l:218,w:124,h:131,kg:800,cat:'Utilitaire léger'},
+  {id:'k3',name:'VW Caddy Maxi Cargo',l:179,w:127,h:129,kg:735,cat:'Utilitaire léger'},
+  {id:'t1',name:'Renault Trafic L1H1',l:243,w:167,h:169,kg:1200,cat:'Fourgon'},
+  {id:'t2',name:'Renault Trafic L2H1',l:303,w:167,h:169,kg:1300,cat:'Fourgon'},
+  {id:'t3',name:'Renault Trafic L2H2',l:303,w:167,h:199,kg:1200,cat:'Fourgon'},
+  {id:'t4',name:'Peugeot Expert L2 Standard',l:270,w:164,h:190,kg:1400,cat:'Fourgon'},
+  {id:'t5',name:'VW Transporter L1H1',l:248,w:163,h:180,kg:1200,cat:'Fourgon'},
+  {id:'t6',name:'Ford Transit Custom L1H1',l:238,w:173,h:181,kg:1365,cat:'Fourgon'},
+  {id:'s1',name:'Mercedes Sprinter L1H1',l:283,w:176,h:186,kg:1530,cat:'Grand fourgon'},
+  {id:'s2',name:'Mercedes Sprinter L2H2',l:343,w:176,h:211,kg:1455,cat:'Grand fourgon'},
+  {id:'s3',name:'Mercedes Sprinter L3H2',l:373,w:176,h:211,kg:1505,cat:'Grand fourgon'},
+  {id:'s4',name:'Mercedes Sprinter L4H3',l:403,w:176,h:239,kg:1455,cat:'Grand fourgon'},
+  {id:'s5',name:'Iveco Daily 35S L3H2',l:360,w:180,h:210,kg:1500,cat:'Grand fourgon'},
+  {id:'s6',name:'Iveco Daily 50C L4H3',l:410,w:200,h:225,kg:3000,cat:'Grand fourgon'},
+  {id:'s7',name:'Renault Master L2H2',l:308,w:175,h:198,kg:1497,cat:'Grand fourgon'},
+  {id:'s8',name:'Renault Master L3H2',l:363,w:175,h:198,kg:1413,cat:'Grand fourgon'},
+  {id:'s9',name:'Fiat Ducato L2H2',l:295,w:172,h:194,kg:1685,cat:'Grand fourgon'},
+  {id:'s10',name:'Fiat Ducato L4H3',l:399,w:172,h:228,kg:1525,cat:'Grand fourgon'},
+  {id:'p1',name:'Porteur 3.5t',l:360,w:200,h:200,kg:1800,cat:'Porteur'},
+  {id:'p2',name:'Porteur 7.5t',l:500,w:230,h:220,kg:4000,cat:'Porteur'},
+  {id:'p3',name:'Porteur 12t',l:620,w:240,h:240,kg:7500,cat:'Porteur'},
+  {id:'sr1',name:'Semi-remorque standard (33 pal.)',l:1360,w:240,h:270,kg:26000,cat:'Semi-remorque'},
+  {id:'sr2',name:'Semi-remorque méga',l:1360,w:248,h:299,kg:26000,cat:'Semi-remorque'},
+];
+const DEFAULT_PKGS=[
+  {id:'dp1',name:'Carton XS',l:20,w:15,h:15,kg:2,ref:'PKG-XS'},
+  {id:'dp2',name:'Carton S',l:30,w:20,h:20,kg:4,ref:'PKG-S'},
+  {id:'dp3',name:'Carton M',l:40,w:30,h:30,kg:8,ref:'PKG-M'},
+  {id:'dp4',name:'Carton L',l:60,w:40,h:40,kg:15,ref:'PKG-L'},
+  {id:'dp5',name:'Carton XL',l:80,w:60,h:60,kg:25,ref:'PKG-XL'},
+  {id:'dp6',name:'Palette demi',l:80,w:60,h:100,kg:200,ref:'PAL-D'},
+  {id:'dp7',name:'Palette EUR',l:120,w:80,h:100,kg:400,ref:'PAL-EUR'},
+];
+
+function loadUserData(){
+  try{userPackages=JSON.parse(localStorage.getItem(uKey('pkgs'))||'null')||JSON.parse(JSON.stringify(DEFAULT_PKGS));}catch(e){userPackages=[...DEFAULT_PKGS];}
+  try{userTrucks=JSON.parse(localStorage.getItem(uKey('trucks'))||'null')||JSON.parse(JSON.stringify(DEFAULT_TRUCKS));}catch(e){userTrucks=[...DEFAULT_TRUCKS];}
+  renderPkgList();renderTruckSelect();renderPkgTable();renderTruckTable();renderStopPkgSelect();
+}
+function savePkgs(){localStorage.setItem(uKey('pkgs'),JSON.stringify(userPackages));}
+function saveTrucksDb(){localStorage.setItem(uKey('trucks'),JSON.stringify(userTrucks));}
+
+/* ═══════════════════════════════════════════════════════
+   NAVIGATION
+═══════════════════════════════════════════════════════ */
+let activePanel='loader';
+function switchPanel(id){
+  document.querySelectorAll('.panel').forEach(p=>{p.classList.remove('active');});
+  document.getElementById('panel-'+id).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.panel===id);});
+  activePanel=id;
+  if(id==='loader'){setTimeout(()=>{if(renderer)renderer.setSize(document.getElementById('canvas-wrap').clientWidth,document.getElementById('canvas-wrap').clientHeight);},50);}
+}
+
+/* ═══════════════════════════════════════════════════════
+   THREE.JS SCENE
+═══════════════════════════════════════════════════════ */
+let scene,camera,renderer,animFrame;
+let truckGroup,floorMesh,gridHelper;
+let boxes=[];let selectedBox=null;
+let showLabels=true;let showGrid=true;
+let currentTruck=null;
+
+// Camera orbit state
+let camR=8,camTheta=Math.PI/4,camPhi=Math.PI/3;
+let isDragging=false,lastMX=0,lastMY=0;
+
+// Drop state
+let dropActive=false;
+let dropX=0,dropZ=0;
+
+const BOX_COLORS=[0x4a90d9,0xe07b3a,0x5cb85c,0xd95b5b,0xf0c040,0x9b59b6,0x1abc9c,0xe67e22,0x3498db,0x2ecc71];
+let colorIdx=0;
+
+function initThree(){
+  if(renderer)return;
+  const wrap=document.getElementById('canvas-wrap');
+  const W=wrap.clientWidth,H=wrap.clientHeight;
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0c0c0e);
+  scene.fog=new THREE.FogExp2(0x0c0c0e,0.008);
+
+  camera=new THREE.PerspectiveCamera(50,W/H,0.05,200);
+  setCameraFromSpherical();
+
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('three-canvas'),antialias:true});
+  renderer.setSize(W,H);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+
+  // Lighting
+  const ambient=new THREE.AmbientLight(0xffffff,0.4);scene.add(ambient);
+  const sun=new THREE.DirectionalLight(0xfff5e0,1.2);
+  sun.position.set(5,12,8);sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.near=0.5;sun.shadow.camera.far=60;
+  sun.shadow.camera.left=-15;sun.shadow.camera.right=15;sun.shadow.camera.top=15;sun.shadow.camera.bottom=-15;
+  scene.add(sun);
+  const fill=new THREE.DirectionalLight(0xaacfff,0.3);fill.position.set(-5,5,-5);scene.add(fill);
+
+  // Floor plane for raycasting
+  floorMesh=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshBasicMaterial({visible:false,side:THREE.DoubleSide}));
+  floorMesh.rotation.x=-Math.PI/2;floorMesh.name='floor';scene.add(floorMesh);
+
+  buildTruck();
+
+  // Events
+  const cnv=document.getElementById('three-canvas');
+  cnv.addEventListener('mousedown',onCanvasMouseDown);
+  cnv.addEventListener('mousemove',onCanvasMouseMove);
+  cnv.addEventListener('mouseup',onCanvasMouseUp);
+  cnv.addEventListener('wheel',onWheel,{passive:true});
+  cnv.addEventListener('contextmenu',e=>e.preventDefault());
+
+  window.addEventListener('resize',onWindowResize);
+  document.addEventListener('mousemove',onDocMouseMove);
+  document.addEventListener('mouseup',onDocMouseUp);
+
+  animate();
+}
+
+function clearThree(){
+  if(animFrame)cancelAnimationFrame(animFrame);
+  if(renderer){renderer.dispose();}
+  renderer=null;scene=null;camera=null;boxes=[];selectedBox=null;
+}
+
+function buildTruck(){
+  if(!currentUser)return;
+  const sel=document.getElementById('truck-select');
+  const t=userTrucks.find(x=>x.id===sel.value)||userTrucks[0];
+  if(!t)return;
+  currentTruck=t;
+  if(truckGroup){scene.remove(truckGroup);truckGroup=null;}
+  if(gridHelper){scene.remove(gridHelper);gridHelper=null;}
+  boxes=[];selectedBox=null;
+  document.getElementById('label-overlay').innerHTML='';
+  hideSelectionPanel();
+
+  const TL=t.l/100,TW=t.w/100,TH=t.h/100;
+  const thick=0.02;
+  truckGroup=new THREE.Group();
+
+  // Floor texture
+  const floorTex=makeFloorTexture();
+  floorTex.repeat.set(TL/0.3,TW/0.3);floorTex.wrapS=floorTex.wrapT=THREE.RepeatWrapping;
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(TL,thick,TW),new THREE.MeshStandardMaterial({map:floorTex,roughness:.9,metalness:.1}));
+  floor.position.y=-thick/2;floor.receiveShadow=true;truckGroup.add(floor);
+
+  // Wall texture
+  const wallTex=makeWallTexture();
+  // Walls
+  const wallMat=new THREE.MeshStandardMaterial({map:wallTex,roughness:.85,metalness:.05,side:THREE.FrontSide});
+  const wallBack=new THREE.Mesh(new THREE.BoxGeometry(TL,TH,thick),wallMat);
+  wallBack.position.set(0,TH/2,-TW/2);truckGroup.add(wallBack);
+  const wallLeft=new THREE.Mesh(new THREE.BoxGeometry(thick,TH,TW),wallMat);
+  wallLeft.position.set(-TL/2,TH/2,0);truckGroup.add(wallLeft);
+  const wallRight=new THREE.Mesh(new THREE.BoxGeometry(thick,TH,TW),wallMat);
+  wallRight.position.set(TL/2,TH/2,0);truckGroup.add(wallRight);
+  const wallTop=new THREE.Mesh(new THREE.BoxGeometry(TL,thick,TW),wallMat);
+  wallTop.position.set(0,TH,-0);truckGroup.add(wallTop);
+
+  // Front opening (no mesh = open)
+  // Ribs on side walls
+  const ribMat=new THREE.MeshStandardMaterial({color:0x7a8a9a,metalness:.6,roughness:.4});
+  const nRibs=Math.round(TL/0.4)+1;
+  for(let i=0;i<=nRibs;i++){
+    const x=-TL/2+i*(TL/nRibs);
+    const ribL=new THREE.Mesh(new THREE.BoxGeometry(0.015,TH,0.015),ribMat);
+    ribL.position.set(x,TH/2,-TW/2+thick);truckGroup.add(ribL);
+    const ribR=ribL.clone();ribR.position.x=x;ribR.position.z=TW/2-thick;truckGroup.add(ribR);
+  }
+
+  // Grid
+  const gSize=Math.max(TL,TW);
+  gridHelper=new THREE.GridHelper(gSize*2,Math.round(gSize*2/0.2),0x3f3f46,0x27272a);
+  gridHelper.position.y=0.001;
+  if(!showGrid)gridHelper.visible=false;
+  scene.add(gridHelper);
+
+  // Floor hit plane
+  floorMesh.position.set(0,0,0);
+
+  // Center camera
+  camR=Math.max(TL,TW,TH)*1.8;resetCamera();
+  updateTruckInfo();
+  updateStats();
+  truckGroup.position.set(0,0,0);
+  scene.add(truckGroup);
+}
+
+function makeFloorTexture(){
+  const size=256;const c=document.createElement('canvas');c.width=size;c.height=size;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#5a4a35';ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle='#4a3a25';ctx.lineWidth=2;
+  const plankW=size/5;
+  for(let i=0;i<5;i++){
+    ctx.strokeRect(i*plankW,0,plankW,size);
+    for(let j=0;j<10;j++){
+      ctx.beginPath();ctx.moveTo(i*plankW+Math.random()*plankW,j*(size/10));ctx.lineTo(i*plankW+Math.random()*plankW,(j+1)*(size/10));
+      ctx.strokeStyle=`rgba(0,0,0,${Math.random()*.15})`;ctx.stroke();
+    }
+    ctx.strokeStyle='#4a3a25';
+  }
+  const t=new THREE.CanvasTexture(c);return t;
+}
+function makeWallTexture(){
+  const size=256;const c=document.createElement('canvas');c.width=size;c.height=size;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle='#d8cfc0';ctx.fillRect(0,0,size,size);
+  for(let i=0;i<size;i+=8){
+    ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(size,i);ctx.strokeStyle=`rgba(0,0,0,${0.04+Math.random()*.04})`;ctx.lineWidth=1;ctx.stroke();
+  }
+  const t=new THREE.CanvasTexture(c);return t;
+}
+function makeCardboardTexture(r,g,b){
+  const size=128;const c=document.createElement('canvas');c.width=size;c.height=size;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(0,0,size,size);
+  for(let i=0;i<size;i+=3){
+    const v=Math.random()>.5?1:-1;
+    ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(size,i);
+    ctx.strokeStyle=`rgba(0,0,0,${0.05+v*.04})`;ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.strokeStyle='rgba(0,0,0,0.12)';ctx.lineWidth=2;
+  ctx.strokeRect(4,4,size-8,size-8);
+  const t=new THREE.CanvasTexture(c);return t;
+}
+
+function setCameraFromSpherical(){
+  if(!camera)return;
+  const x=camR*Math.sin(camPhi)*Math.sin(camTheta);
+  const y=camR*Math.cos(camPhi);
+  const z=camR*Math.sin(camPhi)*Math.cos(camTheta);
+  camera.position.set(x,y,z);
+  camera.lookAt(0,currentTruck?(currentTruck.h/100/2):0.8,0);
+}
+function resetCamera(){
+  const t=currentTruck;
+  if(t){camTheta=Math.PI/4;camPhi=Math.PI/3;camR=Math.max(t.l/100,t.w/100,t.h/100)*1.8;}
+  setCameraFromSpherical();
+}
+function onWheel(e){camR=Math.max(0.5,Math.min(30,camR+e.deltaY*.005));setCameraFromSpherical();}
+function onCanvasMouseDown(e){
+  if(e.button===0){
+    // Check box click for selection
+    const hit=raycastBoxes(e);
+    if(hit){selectBox(hit);return;}
+    // Deselect
+    deselectBox();
+  }
+  if(e.button===1||e.button===2||e.shiftKey){isDragging=true;lastMX=e.clientX;lastMY=e.clientY;}
+  else if(e.button===0&&!dropActive){isDragging=true;lastMX=e.clientX;lastMY=e.clientY;}
+}
+function onCanvasMouseMove(e){
+  if(isDragging){
+    const dx=e.clientX-lastMX;const dy=e.clientY-lastMY;
+    lastMX=e.clientX;lastMY=e.clientY;
+    camTheta-=dx*.005;camPhi=Math.max(.1,Math.min(Math.PI*.49,camPhi+dy*.005));
+    setCameraFromSpherical();
+  }
+}
+function onCanvasMouseUp(e){isDragging=false;}
+function onWindowResize(){
+  const wrap=document.getElementById('canvas-wrap');
+  if(!wrap||!renderer)return;
+  const W=wrap.clientWidth,H=wrap.clientHeight;
+  camera.aspect=W/H;camera.updateProjectionMatrix();
+  renderer.setSize(W,H);
+}
+
+function raycastBoxes(e){
+  if(!renderer)return null;
+  const rect=renderer.domElement.getBoundingClientRect();
+  const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height)*2+1);
+  const raycaster=new THREE.Raycaster();raycaster.setFromCamera(mouse,camera);
+  const meshes=boxes.map(b=>b.mesh).filter(Boolean);
+  const hits=raycaster.intersectObjects(meshes,true);
+  if(!hits.length)return null;
+  const obj=hits[0].object;
+  return boxes.find(b=>b.mesh===obj||b.mesh.children.includes(obj))||null;
+}
+function selectBox(b){
+  if(selectedBox){unhighlight(selectedBox);}
+  selectedBox=b;highlight(b);
+  document.getElementById('sel-name').textContent=b.pkgName;
+  document.getElementById('sel-dims').textContent=b.l+'×'+b.w+'×'+b.h+' cm';
+  document.getElementById('sel-weight').textContent=b.kg+' kg';
+  document.getElementById('sel-client').textContent=b.client||'—';
+  document.getElementById('selection-panel').style.display='block';
+  updateLabelSelected();
+}
+function deselectBox(){
+  if(selectedBox)unhighlight(selectedBox);
+  selectedBox=null;
+  hideSelectionPanel();
+  updateLabelSelected();
+}
+function hideSelectionPanel(){document.getElementById('selection-panel').style.display='none';}
+function highlight(b){b.mesh.traverse(m=>{if(m.isMesh&&m.material){m.material.emissive=new THREE.Color(0x2563eb);m.material.emissiveIntensity=.4;}});}
+function unhighlight(b){b.mesh.traverse(m=>{if(m.isMesh&&m.material){m.material.emissive=new THREE.Color(0x000000);m.material.emissiveIntensity=0;}});}
+function deleteSelected(){
+  if(!selectedBox)return;
+  scene.remove(selectedBox.mesh);
+  boxes=boxes.filter(b=>b!==selectedBox);
+  selectedBox=null;hideSelectionPanel();
+  updateStats();updateLabels();toast('Colis retiré du camion.');
+}
+
+/* ── DROP LOGIC ── */
+let dragPkg=null;
+function startDrop(pkg){dragPkg=pkg;dropActive=true;}
+
+function onDocMouseMove(e){
+  if(!dropActive||!dragPkg)return;
+  const ghost=document.getElementById('drag-ghost');
+  ghost.style.left=(e.clientX+12)+'px';ghost.style.top=(e.clientY-20)+'px';
+  // Update floor intersection
+  if(!renderer)return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return;
+  const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-((e.clientY-rect.top)/rect.height)*2+1);
+  const raycaster=new THREE.Raycaster();raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObject(floorMesh);
+  if(hits.length){dropX=hits[0].point.x;dropZ=hits[0].point.z;}
+}
+function onDocMouseUp(e){
+  if(!dropActive||!dragPkg)return;
+  const ghost=document.getElementById('drag-ghost');ghost.style.display='none';
+  // Check if over canvas
+  if(!renderer)return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  if(e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom){
+    placeBox(dragPkg,dropX,dropZ);
+  }
+  dragPkg=null;dropActive=false;
+  document.querySelectorAll('.pkg-card').forEach(c=>c.classList.remove('dragging-source'));
+}
+
+function placeBox(pkg,wx,wz){
+  if(!currentTruck)return;
+  const TL=currentTruck.l/100,TW=currentTruck.w/100;
+  const l=pkg.l/100,w=pkg.w/100,h=pkg.h/100;
+  // Clamp within truck
+  let px=Math.max(-TL/2+l/2,Math.min(TL/2-l/2,wx));
+  let pz=Math.max(-TW/2+w/2,Math.min(TW/2-w/2,wz));
+  // Stack on top of existing boxes
+  let py=getStackHeight(px,pz,l,w);
+  const TH=currentTruck.h/100;
+  if(py+h>TH){toast('Plus de place en hauteur !');return;}
+  addBox3D(pkg,px,py,pz,null);
+  updateStats();
+  toast('Colis ajouté ✓');
+}
+
+function getStackHeight(px,pz,l,w){
+  let maxY=0;
+  boxes.forEach(b=>{
+    // AABB overlap
+    if(Math.abs(px-b.px)<(l/2+b.l/100/2)-.001&&Math.abs(pz-b.pz)<(w/2+b.w/100/2)-.001){
+      maxY=Math.max(maxY,b.py+b.h/100);
+    }
+  });
+  return maxY;
+}
+
+function addBox3D(pkg,px,py,pz,client){
+  const l=pkg.l/100,w=pkg.w/100,h=pkg.h/100;
+  const col=BOX_COLORS[colorIdx%BOX_COLORS.length];colorIdx++;
+  const r=(col>>16&0xff),g=(col>>8&0xff),b2=(col&0xff);
+  const tex=makeCardboardTexture(r,g,b2);
+  const group=new THREE.Group();
+  const boxGeo=new THREE.BoxGeometry(l,h,w);
+  const boxMat=new THREE.MeshStandardMaterial({map:tex,roughness:.9,metalness:.05});
+  const boxMesh=new THREE.Mesh(boxGeo,boxMat);
+  boxMesh.castShadow=true;boxMesh.receiveShadow=true;
+  // Edge lines
+  const edges=new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo),new THREE.LineBasicMaterial({color:0x000000,transparent:true,opacity:.25}));
+  group.add(boxMesh);group.add(edges);
+  group.position.set(px,py+h/2,pz);
+  scene.add(group);
+  const boxObj={mesh:group,px,py,pz,l:pkg.l,w:pkg.w,h:pkg.h,kg:pkg.kg||0,pkgName:pkg.name,client:client||'',id:Date.now()+Math.random()};
+  boxes.push(boxObj);
+  addLabel(boxObj);
+  return boxObj;
+}
+
+/* ── LABELS ── */
+function addLabel(b){
+  const div=document.createElement('div');
+  div.className='box-label';div.dataset.bid=b.id;
+  div.textContent=b.pkgName+(b.client?' — '+b.client:'');
+  document.getElementById('label-overlay').appendChild(div);
+}
+function updateLabels(){
+  if(!camera||!renderer)return;
+  const wrap=document.getElementById('canvas-wrap');
+  const W=wrap.clientWidth,H=wrap.clientHeight;
+  const overlay=document.getElementById('label-overlay');
+  if(!showLabels){overlay.style.display='none';return;}else{overlay.style.display='';}
+  boxes.forEach(b=>{
+    let div=overlay.querySelector('[data-bid="'+b.id+'"]');
+    if(!div){addLabel(b);div=overlay.querySelector('[data-bid="'+b.id+'"]');}
+    if(!div)return;
+    const wp=new THREE.Vector3(b.px,b.py+b.h/100+0.05,b.pz);
+    const v=wp.clone().project(camera);
+    const sx=(v.x+1)/2*W;const sy=(-v.y+1)/2*H;
+    if(v.z>1){div.style.display='none';return;}div.style.display='';
+    div.style.left=sx+'px';div.style.top=sy+'px';
+    div.classList.toggle('selected',b===selectedBox);
+  });
+  // Remove stale labels
+  overlay.querySelectorAll('.box-label').forEach(div=>{
+    if(!boxes.find(b=>b.id==div.dataset.bid))div.remove();
+  });
+}
+function updateLabelSelected(){
+  document.querySelectorAll('.box-label').forEach(div=>{
+    const b=boxes.find(x=>x.id==div.dataset.bid);
+    if(b)div.classList.toggle('selected',b===selectedBox);
+  });
+}
+function toggleLabels(){showLabels=!showLabels;document.getElementById('btn-labels').classList.toggle('active',showLabels);}
+function toggleGrid(){showGrid=!showGrid;if(gridHelper)gridHelper.visible=showGrid;document.getElementById('btn-grid').classList.toggle('active',showGrid);}
+function clearAll(){boxes.forEach(b=>scene.remove(b.mesh));boxes=[];selectedBox=null;document.getElementById('label-overlay').innerHTML='';hideSelectionPanel();updateStats();toast('Camion vidé.');}
+
+/* ── STATS ── */
+function updateStats(){
+  if(!currentTruck)return;
+  const TL=currentTruck.l/100,TW=currentTruck.w/100,TH=currentTruck.h/100;
+  const totalVol=TL*TW*TH;
+  const usedVol=boxes.reduce((s,b)=>s+(b.l/100)*(b.w/100)*(b.h/100),0);
+  const pct=Math.round(usedVol/totalVol*100);
+  const poids=boxes.reduce((s,b)=>s+b.kg,0);
+  const sv=document.getElementById('stat-vol');
+  sv.textContent=pct+'%';sv.className='stat-val '+(pct>90?'bad':pct>70?'warn':'ok');
+  document.getElementById('stat-poids').textContent=poids.toFixed(0)+' kg';
+  document.getElementById('stat-colis').textContent=boxes.length;
+  const restant=currentTruck.kg-poids;
+  const sr=document.getElementById('stat-restant');
+  sr.textContent=restant.toFixed(0)+' kg';
+  sr.className='stat-val '+(restant<0?'bad':restant<currentTruck.kg*.1?'warn':'');
+}
+function updateTruckInfo(){
+  if(!currentTruck)return;
+  const t=currentTruck;
+  const vol=((t.l*t.w*t.h)/1000000).toFixed(2);
+  document.getElementById('truck-info').innerHTML=`${t.l}×${t.w}×${t.h} cm<br>Vol: ${vol} m³ · ${t.kg} kg max`;
+  document.getElementById('tour-vehicle-info').textContent=t.name+' · '+t.l+'×'+t.w+'×'+t.h+' cm';
+}
+
+/* ── ANIMATE ── */
+function animate(){
+  animFrame=requestAnimationFrame(animate);
+  if(!renderer)return;
+  renderer.render(scene,camera);
+  updateLabels();
+}
+
+/* ═══════════════════════════════════════════════════════
+   DRAG & DROP FROM SIDEBAR
+═══════════════════════════════════════════════════════ */
+function renderPkgList(){
+  const container=document.getElementById('pkg-list');
+  container.innerHTML='';
+  if(!userPackages.length){container.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2M8 7V5a2 2 0 014 0"/></svg><p>Aucun colis.</p></div>';return;}
+  userPackages.forEach(pkg=>{
+    const vol=((pkg.l*pkg.w*pkg.h)/1000000).toFixed(4);
+    const div=document.createElement('div');
+    div.className='pkg-card';
+    div.innerHTML=`
+      <div class="pkg-card-header">
+        <span class="pkg-name">${pkg.name}</span>
+        <span class="pkg-dims">${pkg.l}×${pkg.w}×${pkg.h}</span>
+      </div>
+      <div class="pkg-card-footer">
+        <span class="pkg-volume">${vol} m³</span>
+        <span class="pkg-weight">${pkg.kg} kg</span>
+      </div>`;
+    div.addEventListener('mousedown',e=>{
+      if(e.button!==0)return;
+      e.preventDefault();
+      const ghost=document.getElementById('drag-ghost');
+      ghost.textContent='📦 '+pkg.name;
+      ghost.style.display='block';
+      ghost.style.left=(e.clientX+12)+'px';ghost.style.top=(e.clientY-20)+'px';
+      div.classList.add('dragging-source');
+      startDrop(pkg);
+    });
+    container.appendChild(div);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   TRUCK SELECT
+═══════════════════════════════════════════════════════ */
+function renderTruckSelect(){
+  const sel=document.getElementById('truck-select');
+  sel.innerHTML='';
+  const cats=[...new Set(userTrucks.map(t=>t.cat))];
+  cats.forEach(cat=>{
+    const og=document.createElement('optgroup');og.label=cat;
+    userTrucks.filter(t=>t.cat===cat).forEach(t=>{
+      const opt=document.createElement('option');opt.value=t.id;opt.textContent=t.name;og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+  if(userTrucks.length){currentTruck=userTrucks[0];updateTruckInfo();}
+}
+function changeTruck(){
+  const sel=document.getElementById('truck-select');
+  currentTruck=userTrucks.find(t=>t.id===sel.value)||userTrucks[0];
+  clearAll();buildTruck();
+}
+
+/* ═══════════════════════════════════════════════════════
+   DB — COLIS TABLE
+═══════════════════════════════════════════════════════ */
+function renderPkgTable(){
+  const q=document.getElementById('pkg-search').value.toLowerCase();
+  const body=document.getElementById('pkg-table-body');
+  const empty=document.getElementById('pkg-table-empty');
+  const filtered=userPackages.filter(p=>!q||p.name.toLowerCase().includes(q)||(p.ref&&p.ref.toLowerCase().includes(q)));
+  if(!filtered.length){body.innerHTML='';empty.style.display='';return;}
+  empty.style.display='none';
+  body.innerHTML=filtered.map(p=>`
+    <tr>
+      <td>${p.name}</td>
+      <td class="mono">${p.l} × ${p.w} × ${p.h}</td>
+      <td class="mono">${p.kg} kg</td>
+      <td><span class="tag">${p.ref||'—'}</span></td>
+      <td><div class="row-actions"><button class="row-btn" onclick="editPkg('${p.id}')">Modifier</button><button class="row-btn danger" onclick="deletePkg('${p.id}')">Suppr.</button></div></td>
+    </tr>`).join('');
+}
+
+let editingPkgId=null;
+function openAddPkg(){editingPkgId=null;document.getElementById('modal-pkg-title').textContent='Nouveau colis';['pkg-f-name','pkg-f-l','pkg-f-w','pkg-f-h','pkg-f-kg','pkg-f-ref'].forEach(id=>document.getElementById(id).value='');openModal('modal-pkg');}
+function editPkg(id){
+  const p=userPackages.find(x=>x.id===id);if(!p)return;
+  editingPkgId=id;
+  document.getElementById('modal-pkg-title').textContent='Modifier le colis';
+  document.getElementById('pkg-f-name').value=p.name;document.getElementById('pkg-f-l').value=p.l;document.getElementById('pkg-f-w').value=p.w;document.getElementById('pkg-f-h').value=p.h;document.getElementById('pkg-f-kg').value=p.kg;document.getElementById('pkg-f-ref').value=p.ref||'';
+  openModal('modal-pkg');
+}
+function savePkg(){
+  const name=document.getElementById('pkg-f-name').value.trim();
+  const l=parseFloat(document.getElementById('pkg-f-l').value);
+  const w=parseFloat(document.getElementById('pkg-f-w').value);
+  const h=parseFloat(document.getElementById('pkg-f-h').value);
+  const kg=parseFloat(document.getElementById('pkg-f-kg').value)||0;
+  const ref=document.getElementById('pkg-f-ref').value.trim();
+  if(!name||!l||!w||!h){alert('Nom et dimensions obligatoires.');return;}
+  if(editingPkgId){
+    const p=userPackages.find(x=>x.id===editingPkgId);if(p){Object.assign(p,{name,l,w,h,kg,ref});}
+  }else{
+    userPackages.push({id:'u'+Date.now(),name,l,w,h,kg,ref});
+  }
+  savePkgs();renderPkgTable();renderPkgList();renderStopPkgSelect();closeModal('modal-pkg');toast('Colis enregistré ✓');
+}
+function deletePkg(id){
+  if(!confirm('Supprimer ce colis ?'))return;
+  userPackages=userPackages.filter(p=>p.id!==id);
+  savePkgs();renderPkgTable();renderPkgList();renderStopPkgSelect();toast('Colis supprimé.');
+}
+
+/* ═══════════════════════════════════════════════════════
+   DB — VÉHICULES TABLE
+═══════════════════════════════════════════════════════ */
+function renderTruckTable(){
+  const q=document.getElementById('truck-search').value.toLowerCase();
+  const body=document.getElementById('truck-table-body');
+  const filtered=userTrucks.filter(t=>!q||t.name.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q));
+  body.innerHTML=filtered.map(t=>{
+    const vol=((t.l*t.w*t.h)/1000000).toFixed(2);
+    return`<tr>
+      <td>${t.name}</td>
+      <td class="mono">${t.l} × ${t.w} × ${t.h}</td>
+      <td class="mono">${t.kg.toLocaleString()} kg</td>
+      <td class="mono">${vol} m³</td>
+      <td><span class="tag">${t.cat}</span></td>
+      <td><div class="row-actions"><button class="row-btn" onclick="editTruck('${t.id}')">Modifier</button><button class="row-btn danger" onclick="deleteTruck('${t.id}')">Suppr.</button></div></td>
+    </tr>`;}).join('');
+}
+
+let editingTruckId=null;
+function openAddTruck(){editingTruckId=null;document.getElementById('modal-truck-title').textContent='Nouveau véhicule';['truck-f-name','truck-f-l','truck-f-w','truck-f-h','truck-f-kg'].forEach(id=>document.getElementById(id).value='');openModal('modal-truck');}
+function editTruck(id){
+  const t=userTrucks.find(x=>x.id===id);if(!t)return;
+  editingTruckId=id;
+  document.getElementById('modal-truck-title').textContent='Modifier le véhicule';
+  document.getElementById('truck-f-name').value=t.name;document.getElementById('truck-f-l').value=t.l;document.getElementById('truck-f-w').value=t.w;document.getElementById('truck-f-h').value=t.h;document.getElementById('truck-f-kg').value=t.kg;
+  document.getElementById('truck-f-cat').value=t.cat;
+  openModal('modal-truck');
+}
+function saveTruck(){
+  const name=document.getElementById('truck-f-name').value.trim();
+  const l=parseFloat(document.getElementById('truck-f-l').value);
+  const w=parseFloat(document.getElementById('truck-f-w').value);
+  const h=parseFloat(document.getElementById('truck-f-h').value);
+  const kg=parseFloat(document.getElementById('truck-f-kg').value)||1000;
+  const cat=document.getElementById('truck-f-cat').value;
+  if(!name||!l||!w||!h){alert('Nom et dimensions obligatoires.');return;}
+  if(editingTruckId){
+    const t=userTrucks.find(x=>x.id===editingTruckId);if(t){Object.assign(t,{name,l,w,h,kg,cat});}
+  }else{
+    userTrucks.push({id:'u'+Date.now(),name,l,w,h,kg,cat});
+  }
+  saveTrucksDb();renderTruckTable();renderTruckSelect();closeModal('modal-truck');toast('Véhicule enregistré ✓');
+}
+function deleteTruck(id){
+  if(!confirm('Supprimer ce véhicule ?'))return;
+  userTrucks=userTrucks.filter(t=>t.id!==id);
+  saveTrucksDb();renderTruckTable();renderTruckSelect();toast('Véhicule supprimé.');
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOURNÉE & ALGO LIFO
+═══════════════════════════════════════════════════════ */
+let tourStops=[];
+
+function renderStopPkgSelect(){
+  const container=document.getElementById('stop-pkgs-select');
+  container.innerHTML='';
+  if(!userPackages.length){container.innerHTML='<span style="font-size:11px;color:var(--t4)">Aucun colis disponible.</span>';return;}
+  userPackages.forEach(pkg=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px';
+    const cb=document.createElement('input');cb.type='checkbox';cb.id='sp_'+pkg.id;cb.value=pkg.id;cb.style.accentColor='var(--accent)';
+    const nInput=document.createElement('input');nInput.type='number';nInput.min=1;nInput.value=1;nInput.style.cssText='width:44px;padding:3px 6px;background:var(--s2);border:1px solid var(--b2);border-radius:4px;color:var(--t1);font-size:11px;font-family:inherit';
+    const lbl=document.createElement('label');lbl.htmlFor='sp_'+pkg.id;lbl.style.cssText='font-size:11px;color:var(--t2);cursor:pointer';lbl.textContent=pkg.name;
+    row.appendChild(cb);row.appendChild(nInput);row.appendChild(lbl);
+    container.appendChild(row);
+    cb._pkg=pkg;cb._nInput=nInput;
+  });
+}
+
+function addStop(){
+  const name=document.getElementById('stop-name-input').value.trim();
+  if(!name){alert('Nom de l\'arrêt obligatoire.');return;}
+  const pkgs=[];
+  document.getElementById('stop-pkgs-select').querySelectorAll('input[type=checkbox]:checked').forEach(cb=>{
+    const qty=parseInt(cb._nInput.value)||1;
+    for(let i=0;i<qty;i++)pkgs.push({...cb._pkg});
+  });
+  if(!pkgs.length){alert('Sélectionnez au moins un colis pour cet arrêt.');return;}
+  tourStops.push({id:Date.now(),name,pkgs});
+  document.getElementById('stop-name-input').value='';
+  document.getElementById('stop-pkgs-select').querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=false);
+  renderStopList();toast('Arrêt ajouté ✓');
+}
+
+function renderStopList(){
+  const container=document.getElementById('stops-list');
+  if(!tourStops.length){container.innerHTML='<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><p>Aucun arrêt.</p></div>';return;}
+  container.innerHTML=tourStops.map((s,i)=>`
+    <div class="stop-card">
+      <div class="stop-card-header">
+        <div class="stop-num">${i+1}</div>
+        <div class="stop-name">${s.name}</div>
+        <button class="stop-del-btn" onclick="removeStop('${s.id}')">×</button>
+      </div>
+      <div class="stop-pkgs">
+        ${s.pkgs.map(p=>`<div class="stop-pkg-row"><span class="stop-pkg-name">${p.name}</span><span>${p.l}×${p.w}×${p.h} cm · ${p.kg}kg</span></div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function removeStop(id){tourStops=tourStops.filter(s=>s.id!=id);renderStopList();}
+
+function computeTour(){
+  if(!tourStops.length){alert('Ajoutez au moins un arrêt.');return;}
+  if(!currentTruck){alert('Sélectionnez un véhicule.');return;}
+  const t=currentTruck;
+  const TL=t.l,TW=t.w,TH=t.h; // in cm
+  const G=5; // grid cm
+  const cols=Math.floor(TL/G),rows=Math.floor(TW/G);
+  const hmap=new Float32Array(cols*rows);
+
+  // LIFO: last stop loaded first (deepest in truck = x=0 side)
+  const loadOrder=[];
+  const reversed=[...tourStops].reverse();
+  reversed.forEach(stop=>{
+    // Sort pkgs heaviest first within a stop
+    const sorted=[...stop.pkgs].sort((a,b)=>b.kg-a.kg);
+    sorted.forEach(pkg=>loadOrder.push({...pkg,client:stop.name}));
+  });
+
+  const placed=[];
+  loadOrder.forEach(pkg=>{
+    const orientations=[{l:pkg.l,w:pkg.w,h:pkg.h},{l:pkg.w,w:pkg.l,h:pkg.h}];
+    let best=null;let bestY=Infinity;
+    orientations.forEach(ori=>{
+      const {l,w,h}=ori;
+      if(l>TL||w>TW||h>TH)return;
+      const pCols=Math.floor(l/G),pRows=Math.floor(w/G);
+      for(let ix=0;ix<=cols-pCols;ix++){
+        for(let iz=0;iz<=rows-pRows;iz++){
+          let maxH=0;
+          for(let dx=ix;dx<ix+pCols;dx++)for(let dz=iz;dz<iz+pRows;dz++)maxH=Math.max(maxH,hmap[dx*rows+dz]);
+          if(maxH+h<=TH){if(maxH<bestY){bestY=maxH;best={ix,iz,l,w,h,pCols,pRows};}}
+        }
+      }
+    });
+    if(!best){placed.push({...pkg,unplaced:true});return;}
+    const{ix,iz,l,w,h,pCols,pRows}=best;
+    const px=(ix+pCols/2)*G-TL/2;
+    const py=best ? bestY : 0;
+    const pz=(iz+pRows/2)*G-TW/2;
+    for(let dx=ix;dx<ix+pCols;dx++)for(let dz=iz;dz<iz+pRows;dz++)hmap[dx*rows+dz]=bestY+h;
+    placed.push({...pkg,px,py,pz,l,w,h,placed:true});
+  });
+
+  renderTourResult(placed,t);
+}
+
+function renderTourResult(placed,t){
+  const body=document.getElementById('tour-body');
+  const vol=placed.filter(p=>p.placed).reduce((s,p)=>s+(p.l*p.w*p.h)/1e6,0).toFixed(3);
+  const poids=placed.filter(p=>p.placed).reduce((s,p)=>s+p.kg,0);
+  const unplaced=placed.filter(p=>p.unplaced);
+  body.innerHTML=`
+    <div style="padding:16px;height:100%;overflow-y:auto">
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:12px 16px;min-width:120px">
+          <div style="font-size:22px;font-weight:700;color:var(--green)">${placed.filter(p=>p.placed).length}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Colis placés</div>
+        </div>
+        ${unplaced.length?`<div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:12px 16px;min-width:120px">
+          <div style="font-size:22px;font-weight:700;color:var(--red)">${unplaced.length}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Non placés</div>
+        </div>`:''}
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:12px 16px;min-width:120px">
+          <div style="font-size:22px;font-weight:700;color:var(--t1)">${vol} m³</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Volume utilisé</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:12px 16px;min-width:120px">
+          <div style="font-size:22px;font-weight:700;color:var(--t1)">${poids} kg</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Poids total</div>
+        </div>
+      </div>
+      ${unplaced.length?`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--red)">⚠ ${unplaced.length} colis ne rentrent pas dans le véhicule : ${unplaced.map(p=>p.name).join(', ')}</div>`:''}
+      <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:10px">Ordre de chargement (premier chargé = fond du camion)</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${placed.filter(p=>p.placed).map((p,i)=>`
+          <div style="display:grid;grid-template-columns:28px 1fr 120px 80px;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r-sm)">
+            <span style="font-size:10px;font-weight:700;color:var(--accent)">${i+1}</span>
+            <span style="font-size:12px;font-weight:500;color:var(--t1)">${p.name}</span>
+            <span style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace">${p.l}×${p.w}×${p.h} cm</span>
+            <span style="font-size:11px;color:var(--accent)">${p.client}</span>
+          </div>`).join('')}
+      </div>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="loadTourIn3D(${JSON.stringify(placed).replace(/</g,'&lt;')})">Visualiser en 3D</button>
+    </div>`;
+}
+
+function loadTourIn3D(placed){
+  switchPanel('loader');
+  clearAll();
+  setTimeout(()=>{
+    placed.filter(p=>p.placed).forEach(p=>{
+      addBox3D({name:p.name,l:p.l,w:p.w,h:p.h,kg:p.kg},p.px/100,p.py/100,p.pz/100,p.client);
+    });
+    updateStats();
+    toast('Chargement LIFO visualisé en 3D ✓');
+  },100);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODALS / TOAST
+═══════════════════════════════════════════════════════ */
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-backdrop').forEach(m=>{m.addEventListener('mousedown',e=>{if(e.target===m)m.classList.remove('open');});});
+
+let toastTimeout;
+function toast(msg){
+  const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+/* ═══════════════════════════════════════════════════════
+   KEYBOARD
+═══════════════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Delete'||e.key==='Backspace'){
+    const tag=document.activeElement.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+    if(selectedBox)deleteSelected();
+  }
+  if(e.key==='Escape'){deselectBox();document.querySelectorAll('.modal-backdrop').forEach(m=>m.classList.remove('open'));}
+  if(e.key==='r'||e.key==='R'){if(activePanel==='loader')resetCamera();}
+});
+
+/* ═══════════════════════════════════════════════════════
+   ENTER KEY FOR AUTH
+═══════════════════════════════════════════════════════ */
+document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('login-email').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('reg-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();});
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+tryAutoLogin();
+</script>
+</body>
+</html>
